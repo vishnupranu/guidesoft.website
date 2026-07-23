@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: guidesoft-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: WEBUI_NAME
+        value: GuideSoft AI
+      - key: ANONYMIZED_TELEMETRY
+        value: "false"
+      - key: SCARF_NO_ANALYTICS
+        value: "true"
+      - key: DO_NOT_TRACK
+        value: "true"
+      - key: WEBUI_AUTH
+        value: "false"
+    healthCheckPath: /health
+    autoDeploy: true
