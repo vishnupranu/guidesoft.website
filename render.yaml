@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: guidesoft-ai
+    name: guidesoft-web
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
     envVars:
       - key: WEBUI_NAME
-        value: GuideSoft AI
+        value: GUIDESOFT.WEB
       - key: ANONYMIZED_TELEMETRY
         value: "false"
       - key: SCARF_NO_ANALYTICS
