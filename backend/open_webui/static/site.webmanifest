@@ -1,7 +1,7 @@
 {
-  "name": "GuideSoft AI",
-  "short_name": "GuideSoft AI",
-  "description": "GuideSoft IT Solutions and Training Center - AI Assistant",
+  "name": "GUIDESOFT.WEB",
+  "short_name": "GUIDESOFT.WEB",
+  "description": "GUIDESOFT.WEB Platform",
   "icons": [
     {
       "src": "/static/web-app-manifest-192x192.png",
