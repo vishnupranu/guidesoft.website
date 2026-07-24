@@ -2,550 +2,555 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	// ─── State ───────────────────────────────────────────────────────
+	// ── State ──────────────────────────────────────────────────────
 	let prompt = '';
-	let promptFocused = false;
-	let heroLoaded = false;
-	let scrollY = 0;
-	let activeUseCase = 0;
-	let activeFaq = -1;
+	let selectedModel = 'GPT-4o';
+	let showModelDropdown = false;
+	let inputFocused = false;
+	let activeTab = 'all';
 	let billingAnnual = false;
-	let testimonialIdx = 0;
-	let canvasEl: HTMLCanvasElement;
-	let animId: number;
-	let particles: { x: number; y: number; vx: number; vy: number; r: number; o: number }[] = [];
+	let activeFaq = -1;
+	let scrollY = 0;
 
-	const useCases = [
-		{
-			tab: 'Developers', icon: '⚡',
-			headline: 'Ship AI features 10× faster',
-			body: 'Connect any model, build custom pipelines, and integrate REST APIs with zero config. GUIDESOFT handles the infrastructure so you focus on the product.',
-			bullets: ['OpenAI-compatible REST API', 'Function calling & tool use', 'Code interpreter & RAG', 'Local model support'],
-			emoji: '⚙️'
-		},
-		{
-			tab: 'Teams', icon: '👥',
-			headline: 'Collaborate on AI without limits',
-			body: 'Shared workspaces, version-controlled prompts, and real-time collab. Keep your entire team on the same page — and the same model.',
-			bullets: ['Shared prompt library', 'Role-based access control', 'Team analytics dashboard', 'Real-time collaboration'],
-			emoji: '🤝'
-		},
-		{
-			tab: 'Enterprise', icon: '🏢',
-			headline: 'Enterprise-grade AI, on your terms',
-			body: 'Deploy on-premise or in your private cloud. SSO, audit logs, compliance controls, and 99.9% uptime SLA. Your data never leaves your infrastructure.',
-			bullets: ['On-premise deployment', 'SSO & SAML', 'SOC 2 compliant', 'Dedicated support'],
-			emoji: '🔒'
-		}
+	// Models available
+	const models = [
+		{ id: 'GPT-4o', name: 'GPT-4o', provider: 'OpenAI', icon: '⚡', color: '#10a37f' },
+		{ id: 'Claude-3.5', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', icon: '🧠', color: '#d97706' },
+		{ id: 'Gemini-1.5', name: 'Gemini 1.5 Pro', provider: 'Google', icon: '✨', color: '#2563eb' },
+		{ id: 'DeepSeek-V3', name: 'DeepSeek V3', provider: 'DeepSeek', icon: '🚀', color: '#7c3aed' },
+		{ id: 'Llama-3.3', name: 'Llama 3.3 70B', provider: 'Meta', icon: '🦙', color: '#0284c7' }
 	];
 
-	const features = [
-		{ icon: '🧠', title: 'Multi-Model AI', desc: 'GPT-4o, Claude, Gemini, Llama, Mistral — switch models mid-conversation.', accent: '#7c3aed' },
-		{ icon: '📚', title: 'Knowledge RAG', desc: 'Upload PDFs, docs, websites. AI answers from your data with source citations.', accent: '#2563eb' },
-		{ icon: '🤖', title: 'AI Agents', desc: 'Autonomous agents that browse the web, write code, and execute multi-step tasks.', accent: '#059669' },
-		{ icon: '🎙️', title: 'Voice & Vision', desc: 'Talk to your AI with real-time voice. Analyze images, charts, and screenshots.', accent: '#dc2626' },
-		{ icon: '🔧', title: 'Function Calling', desc: 'Connect AI to your APIs, databases, and external tools with built-in function calling.', accent: '#d97706' },
-		{ icon: '🔒', title: 'Privacy First', desc: 'Deploy locally, keep data on-premise. Zero telemetry, full encryption at rest.', accent: '#7c3aed' }
+	// Starters
+	const starters = [
+		{ label: 'Summarize 50-page PDF report', icon: '📄', model: 'GPT-4o' },
+		{ label: 'Build a Next.js + Tailwind web app', icon: '💻', model: 'Claude 3.5 Sonnet' },
+		{ label: 'Analyze Q3 revenue trends with Python', icon: '📊', model: 'DeepSeek V3' },
+		{ label: 'Translate technical spec to Spanish', icon: '🌐', model: 'Gemini 1.5 Pro' }
 	];
 
-	const testimonials = [
-		{ name: 'Priya Nair', role: 'CTO, FinSight', avatar: 'PN', quote: 'GUIDESOFT cut our AI integration time from months to days. The multi-model support is a game changer for our research team.', stars: 5 },
-		{ name: 'Marcus Chen', role: 'Lead Engineer, Devstack', avatar: 'MC', quote: "The local deployment option was a dealbreaker for us in healthcare. We're HIPAA compliant and running GPT-4 class models on our own servers.", stars: 5 },
-		{ name: 'Aisha Okonkwo', role: 'Product Lead, Nexara', avatar: 'AO', quote: "Best AI platform I've used. The RAG pipeline and knowledge base made our internal docs actually useful. Team loves it.", stars: 5 },
-		{ name: 'Leo Martínez', role: 'Founder, Codewise', avatar: 'LM', quote: 'Went from zero to production AI in 2 hours. The API is clean, the docs are excellent, and support actually responds.', stars: 5 }
+	// Typing animation
+	const typingSentences = [
+		"Welcome to GUIDESOFT.WEB — your personal AI workplace.",
+		"Connect GPT-4o, Claude 3.5, Gemini, Llama 3, and DeepSeek in one place.",
+		"Upload PDFs, docs, and code to chat with your knowledge base.",
+		"Run autonomous AI agents, vision tools, and local models securely."
 	];
-
-	const faqs = [
-		{ q: 'What AI models does GUIDESOFT support?', a: 'GUIDESOFT supports GPT-4o, GPT-4, Claude 3.5, Gemini Pro, Llama 3, Mistral, and any OpenAI-compatible model. You can connect your own model endpoints too.' },
-		{ q: 'Can I run GUIDESOFT on my own servers?', a: 'Yes. GUIDESOFT is designed for self-hosting. Deploy via Docker in minutes on any cloud or on-premise. Your data never leaves your infrastructure.' },
-		{ q: 'How does pricing work?', a: 'We offer a generous free tier, then pay-as-you-go Pro and Team plans. Enterprise contracts include volume discounts, dedicated SLA, and on-premise support.' },
-		{ q: 'Is there an API?', a: 'Yes — a full OpenAI-compatible REST API. Drop it into any existing codebase that already uses OpenAI, with zero code changes.' },
-		{ q: 'How secure is my data?', a: 'All data is encrypted at rest and in transit. We are SOC 2 Type II certified. With self-hosting, your data never touches our servers at all.' }
-	];
-
-	const logos = ['OpenAI', 'Anthropic', 'Google', 'Meta', 'Mistral', 'Ollama', 'HuggingFace', 'LangChain'];
-	const integrations = ['🐍 Python', '⚡ Node.js', '🔷 TypeScript', '☁️ AWS', '🌊 GCP', '🔵 Azure', '🐳 Docker', '⎈ Kubernetes', '🔗 LangChain', '🦜 LlamaIndex', '📊 Slack', '📧 Gmail'];
-
-	const typingPhrases = [
-		'Summarize this 50-page report',
-		'Build a data pipeline with AI',
-		'Analyze my sales data trends',
-		'Write production-ready code',
-		'Search my knowledge base',
-		'Create an AI agent workflow'
-	];
+	let sentenceIdx = 0;
+	let charIdx = 0;
+	let isDeleting = false;
 	let typingText = '';
-	let typingPhrase = 0;
-	let typingChar = 0;
-	let typingDir = 1;
 	let typingTimer: ReturnType<typeof setTimeout>;
 
-	function typeNext() {
-		const phrase = typingPhrases[typingPhrase];
-		if (typingDir === 1) {
-			typingChar++;
-			typingText = phrase.slice(0, typingChar);
-			if (typingChar >= phrase.length) { typingDir = -1; typingTimer = setTimeout(typeNext, 1800); return; }
+	function typeEffect() {
+		const currentSentence = typingSentences[sentenceIdx];
+		if (!isDeleting) {
+			typingText = currentSentence.slice(0, charIdx + 1);
+			charIdx++;
+			if (charIdx === currentSentence.length) {
+				isDeleting = true;
+				typingTimer = setTimeout(typeEffect, 2200);
+				return;
+			}
 		} else {
-			typingChar--;
-			typingText = phrase.slice(0, typingChar);
-			if (typingChar <= 0) { typingDir = 1; typingPhrase = (typingPhrase + 1) % typingPhrases.length; typingTimer = setTimeout(typeNext, 300); return; }
-		}
-		typingTimer = setTimeout(typeNext, typingDir === 1 ? 55 : 30);
-	}
-
-	function initParticles(canvas: HTMLCanvasElement) {
-		canvas.width = window.innerWidth;
-		canvas.height = window.innerHeight;
-		particles = Array.from({ length: 55 }, () => ({
-			x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-			vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
-			r: Math.random() * 1.5 + 0.4, o: Math.random() * 0.4 + 0.08
-		}));
-	}
-
-	function drawParticles() {
-		if (!canvasEl) return;
-		const ctx = canvasEl.getContext('2d')!;
-		ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-		particles.forEach((p) => {
-			p.x += p.vx; p.y += p.vy;
-			if (p.x < 0) p.x = canvasEl.width; if (p.x > canvasEl.width) p.x = 0;
-			if (p.y < 0) p.y = canvasEl.height; if (p.y > canvasEl.height) p.y = 0;
-			ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-			ctx.fillStyle = `rgba(167,139,250,${p.o})`; ctx.fill();
-		});
-		for (let i = 0; i < particles.length; i++) {
-			for (let j = i + 1; j < particles.length; j++) {
-				const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
-				const d = Math.sqrt(dx * dx + dy * dy);
-				if (d < 100) {
-					ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
-					ctx.strokeStyle = `rgba(124,58,237,${0.12 * (1 - d / 100)})`; ctx.lineWidth = 0.5; ctx.stroke();
-				}
+			typingText = currentSentence.slice(0, charIdx - 1);
+			charIdx--;
+			if (charIdx === 0) {
+				isDeleting = false;
+				sentenceIdx = (sentenceIdx + 1) % typingSentences.length;
+				typingTimer = setTimeout(typeEffect, 400);
+				return;
 			}
 		}
-		animId = requestAnimationFrame(drawParticles);
+		typingTimer = setTimeout(typeEffect, isDeleting ? 25 : 45);
 	}
 
-	function handlePromptSubmit() {
+	// Agents showcase
+	const agents = [
+		{ name: 'Senior Developer', avatar: '👨‍💻', desc: 'Writes clean, tested code in React, Python, Go & Rust', tag: 'Coding', stars: '4.9k' },
+		{ name: 'Data Analyst', avatar: '📈', desc: 'Analyzes CSVs, generates charts and SQL queries instantly', tag: 'Analytics', stars: '3.8k' },
+		{ name: 'Research Scholar', avatar: '🔬', desc: 'Performs deep web searches & summarizes academic papers', tag: 'Research', stars: '5.2k' },
+		{ name: 'Product Manager', avatar: '🚀', desc: 'Drafts PRDs, user stories, and roadmap documentation', tag: 'Productivity', stars: '4.1k' }
+	];
+
+	// Features Bento Grid
+	const bentoItems = [
+		{
+			title: 'Multi-Model Switcher',
+			desc: 'Switch seamlessly between OpenAI, Anthropic, Google, and local Ollama models in the same chat thread.',
+			icon: '🔮',
+			badge: 'All-in-One'
+		},
+		{
+			title: 'Knowledge Base (RAG)',
+			desc: 'Upload documents, codebase repos, and PDFs. Get accurate answers backed by precise citations.',
+			icon: '📚',
+			badge: 'Enterprise RAG'
+		},
+		{
+			title: 'Code Interpreter & Sandbox',
+			desc: 'Execute Python code safely in Pyodide WASM sandbox. Plot charts and export clean datasets.',
+			icon: '⚡',
+			badge: 'WASM Powered'
+		},
+		{
+			title: 'Autonomous Agents & Tools',
+			desc: 'Equip AI with web browsing, search tools, multi-agent orchestration, and custom API calls.',
+			icon: '🤖',
+			badge: 'Agentic Workflow'
+		},
+		{
+			title: 'Voice & Vision Multimodal',
+			desc: 'Speak naturally with real-time TTS/STT and upload screenshots or diagrams for vision analysis.',
+			icon: '🎙️',
+			badge: 'Real-Time Voice'
+		},
+		{
+			title: '100% Privacy & Self-Hostable',
+			desc: 'Deploy locally via Docker. Zero external data tracking — full control of your keys and data.',
+			icon: '🛡️',
+			badge: 'Open Source'
+		}
+	];
+
+	// Testimonials
+	const testimonials = [
+		{ name: 'Elena Rostova', role: 'CTO, AI Scale', quote: 'GUIDESOFT replaced 4 different subscription tools for our team. The LobeHub UI combined with local model support is world-class.', avatar: 'ER' },
+		{ name: 'David Kim', role: 'Staff Engineer, DevWorks', quote: 'The speed of model switching and the rich markdown/artifacts viewer makes coding 3x faster every single day.', avatar: 'DK' },
+		{ name: 'Sarah Jenkins', role: 'Research Lead, OpenData', quote: 'Having RAG document chat with zero setup saved our lab hundreds of hours in paper synthesis.', avatar: 'SJ' }
+	];
+
+	// FAQs
+	const faqs = [
+		{ q: 'What is GUIDESOFT.WEB?', a: 'GUIDESOFT.WEB is an open-source, modern AI workspace inspired by LobeHub. It brings together top AI models, knowledge management, and AI agents into one interface.' },
+		{ q: 'Can I self-host GUIDESOFT on my own server?', a: 'Yes! GUIDESOFT is fully open source and containerized with Docker. You can deploy it on local hardware or any cloud provider in under 2 minutes.' },
+		{ q: 'How does model pricing work?', a: 'You can use your own API keys for OpenAI, Anthropic, Google, or DeepSeek — or run 100% free offline models using Ollama and local LLMs.' },
+		{ q: 'Is my data secure?', a: 'Yes. All data remains stored in your local browser storage or self-hosted database. We do not track or store your conversations.' }
+	];
+
+	function handleSend() {
 		if (!prompt.trim()) return;
-		goto(`/auth?next=chat&prompt=${encodeURIComponent(prompt.trim())}`);
+		const encodedPrompt = encodeURIComponent(prompt.trim());
+		goto(`/auth?next=chat&prompt=${encodedPrompt}&model=${selectedModel}`);
+	}
+
+	function handleStarterClick(starterPrompt: string, modelId: string) {
+		prompt = starterPrompt;
+		selectedModel = modelId;
+		handleSend();
 	}
 
 	function observeReveal() {
 		const io = new IntersectionObserver((entries) => {
-			entries.forEach((e) => { if (e.isIntersecting) { (e.target as HTMLElement).classList.add('revealed'); io.unobserve(e.target); } });
+			entries.forEach((entry) => {
+				if (entry.isIntersecting) {
+					entry.target.classList.add('revealed');
+					io.unobserve(entry.target);
+				}
+			});
 		}, { threshold: 0.1 });
 		document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 	}
 
-	let testimonialTimer: ReturnType<typeof setInterval>;
-
 	onMount(() => {
-		heroLoaded = true;
-		if (canvasEl) { initParticles(canvasEl); drawParticles(); }
-		window.addEventListener('resize', () => { if (canvasEl) { canvasEl.width = window.innerWidth; canvasEl.height = window.innerHeight; initParticles(canvasEl); } });
-		setTimeout(typeNext, 800);
+		typeEffect();
 		setTimeout(observeReveal, 100);
-		testimonialTimer = setInterval(() => { testimonialIdx = (testimonialIdx + 1) % testimonials.length; }, 4500);
 	});
 
-	onDestroy(() => { cancelAnimationFrame(animId); clearTimeout(typingTimer); clearInterval(testimonialTimer); });
+	onDestroy(() => {
+		clearTimeout(typingTimer);
+	});
 </script>
 
 <svelte:head>
-	<title>GUIDESOFT.WEB — The AI Platform for Everyone</title>
-	<meta name="description" content="Build, automate and collaborate with AI. GUIDESOFT supports GPT-4, Claude, Gemini, Llama and more." />
+	<title>GUIDESOFT.WEB — Next-Gen Open Source AI Workspace</title>
+	<meta name="description" content="Open-source AI platform supporting GPT-4o, Claude 3.5, Gemini, Llama 3 & DeepSeek. Self-hostable, agentic, and built for speed." />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
 </svelte:head>
 
 <svelte:window bind:scrollY />
 
-<div class="landing">
+<div class="lobe-landing">
 
-	<!-- ══ HERO ══ -->
-	<section class="hero" id="hero">
-		<canvas class="hero-canvas" bind:this={canvasEl}></canvas>
-		<div class="orb orb-1"></div>
-		<div class="orb orb-2"></div>
-		<div class="orb orb-3"></div>
-		<div class="hero-grid"></div>
+	<!-- ══════════════════════════════════════════════════
+	     HEADER / NAV
+	════════════════════════════════════════════════════ -->
+	<header class="header" class:scrolled={scrollY > 30}>
+		<div class="header-container">
+			<a href="/landing" class="brand-logo">
+				<div class="brand-icon">G</div>
+				<span class="brand-name">GUIDESOFT<span class="brand-accent">.WEB</span></span>
+				<span class="brand-tag">v2.5</span>
+			</a>
 
-		<nav class="nav" class:nav-scrolled={scrollY > 40}>
-			<div class="nav-inner">
-				<a href="/landing" class="nav-logo">
-					<div class="nav-logo-mark">G</div>
-					<span class="nav-logo-text">GUIDESOFT<span class="nav-logo-dot">.WEB</span></span>
+			<nav class="nav-links">
+				<a href="#features" class="nav-item">Features</a>
+				<a href="#models" class="nav-item">Models</a>
+				<a href="#agents" class="nav-item">Agents</a>
+				<a href="#pricing" class="nav-item">Pricing</a>
+				<a href="#faq" class="nav-item">FAQ</a>
+			</nav>
+
+			<div class="nav-right">
+				<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="gh-star-btn">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+					<span>Star</span>
+					<span class="star-count">1.4k</span>
 				</a>
-				<div class="nav-links">
-					<a href="#features" class="nav-link">Features</a>
-					<a href="#how-it-works" class="nav-link">How it works</a>
-					<a href="#pricing" class="nav-link">Pricing</a>
-					<a href="#faq" class="nav-link">FAQ</a>
-				</div>
-				<div class="nav-actions">
-					<a href="/auth" class="btn-ghost">Sign In</a>
-					<a href="/auth?mode=signup" class="btn-primary-sm">Get Started</a>
-				</div>
-			</div>
-		</nav>
-
-		<div class="hero-content" class:loaded={heroLoaded}>
-			<div class="hero-badge"><span class="badge-dot"></span>Now with GPT-4o, Claude 3.5 &amp; Gemini Pro</div>
-			<h1 class="hero-heading">The AI Platform<br /><span class="gradient-text">Built for Everyone</span></h1>
-			<p class="hero-sub">Build · Automate · Collaborate with AI.<br />Connect any model. Ship in minutes.</p>
-
-			<div class="hero-prompt-wrap" class:focused={promptFocused}>
-				<div class="prompt-icon">✦</div>
-				<input
-					bind:value={prompt}
-					on:focus={() => (promptFocused = true)}
-					on:blur={() => (promptFocused = false)}
-					on:keydown={(e) => e.key === 'Enter' && handlePromptSubmit()}
-					class="hero-prompt-input"
-					placeholder={typingText || 'Ask anything or describe what you want to build…'}
-					id="hero-prompt"
-					autocomplete="off"
-				/>
-				<button class="prompt-submit" on:click={handlePromptSubmit} id="hero-prompt-submit">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-				</button>
-			</div>
-			<p class="prompt-hint">Press Enter to get started — no account required to explore</p>
-
-			<div class="hero-cta">
-				<a href="/auth?mode=signup" class="btn-primary" id="hero-cta-signup">Get Started Free</a>
-				<a href="#how-it-works" class="btn-outline" id="hero-cta-demo">See How It Works ↓</a>
-			</div>
-
-			<div class="hero-stats">
-				<div class="stat"><strong>50K+</strong><span>Teams</span></div>
-				<div class="stat-divider"></div>
-				<div class="stat"><strong>12+</strong><span>AI Models</span></div>
-				<div class="stat-divider"></div>
-				<div class="stat"><strong>99.9%</strong><span>Uptime</span></div>
-				<div class="stat-divider"></div>
-				<div class="stat"><strong>∞</strong><span>Integrations</span></div>
+				<a href="/auth" class="btn-secondary">Sign In</a>
+				<a href="/auth?mode=signup" class="btn-gradient">Get Started</a>
 			</div>
 		</div>
-		<div class="scroll-hint"><div class="scroll-dot"></div></div>
-	</section>
+	</header>
 
-	<!-- ══ TRUSTED BY ══ -->
-	<section class="trusted">
-		<p class="trusted-label">Trusted by teams at</p>
-		<div class="ticker-wrap">
-			<div class="ticker-track">
-				{#each [...logos, ...logos] as logo}<div class="ticker-item">{logo}</div>{/each}
-			</div>
-		</div>
-	</section>
+	<!-- ══════════════════════════════════════════════════
+	     HERO SECTION (LOBEHUB CHAT INTERFACE)
+	════════════════════════════════════════════════════ -->
+	<section class="hero-section">
+		<div class="hero-background-gradient"></div>
+		<div class="hero-grid-overlay"></div>
 
-	<!-- ══ WHAT IS GUIDESOFT ══ -->
-	<section class="what-is reveal" id="about">
-		<div class="container">
-			<div class="what-grid">
-				<div class="what-left">
-					<div class="eyebrow">WHAT IS GUIDESOFT</div>
-					<h2 class="sec-h">Your AI command center — everything in one place</h2>
-					<p class="sec-p">GUIDESOFT is an open-source AI platform that brings together the world's best language models, knowledge management, and automation tools into a single, beautiful interface.</p>
-					<p class="sec-p">Whether you're a solo developer, a growing team, or an enterprise — GUIDESOFT adapts to your workflow and scales with your ambitions.</p>
-					<div class="pills">
-						{#each ['Open Source', 'Self-Hostable', 'API-First', 'Privacy-Focused'] as p}
-							<span class="pill">{p}</span>
-						{/each}
-					</div>
-				</div>
-				<div class="what-right">
-					<div class="ui-mock">
-						<div class="ui-mock-header">
-							<div class="ui-dots"><span></span><span></span><span></span></div>
-							<span class="ui-title-label">GUIDESOFT.WEB</span>
-						</div>
-						<div class="ui-mock-body">
-							<div class="ui-msg user">What's the revenue trend for Q2 2024?</div>
-							<div class="ui-msg bot">
-								<div class="model-tag">GPT-4o</div>
-								Based on your uploaded data, Q2 revenue grew <strong>34%</strong> YoY with strong performance in March and June...
-								<div class="mini-chart">
-									{#each [45, 60, 52, 80, 95] as h, i}
-										<div class="mini-bar" class:hi={i === 4} style="height:{h}%"></div>
-									{/each}
-								</div>
-							</div>
-							<div class="ui-input"><span>Ask a follow-up...</span><span class="send">↑</span></div>
-						</div>
-					</div>
-				</div>
+		<div class="hero-container">
+			<!-- Announcement Badge -->
+			<div class="hero-badge">
+				<span class="badge-sparkle">✦</span>
+				<span>Introducing GUIDESOFT.WEB 2.5 with DeepSeek V3 &amp; Ant Design X</span>
+				<span class="badge-arrow">→</span>
 			</div>
-		</div>
-	</section>
 
-	<!-- ══ FEATURES ══ -->
-	<section class="features reveal" id="features">
-		<div class="container">
-			<div class="eyebrow center">CAPABILITIES</div>
-			<h2 class="sec-h center">Everything you need to build with AI</h2>
-			<p class="sec-p center" style="max-width:560px;margin:0 auto 48px;">Six core pillars that make GUIDESOFT the most complete AI platform available.</p>
-			<div class="feat-grid">
-				{#each features as f, i}
-					<div class="feat-card" style="--a:{f.accent}; animation-delay:{i*80}ms">
-						<div class="feat-icon">{f.icon}</div>
-						<h3 class="feat-title">{f.title}</h3>
-						<p class="feat-desc">{f.desc}</p>
-						<div class="feat-glow"></div>
-					</div>
-				{/each}
-			</div>
-		</div>
-	</section>
+			<!-- Title & Typewriter -->
+			<h1 class="hero-title">
+				Shape the Future of Work<br />
+				<span class="gradient-text">with GUIDESOFT AI</span>
+			</h1>
 
-	<!-- ══ HOW IT WORKS ══ -->
-	<section class="how reveal" id="how-it-works">
-		<div class="container">
-			<div class="eyebrow center">HOW IT WORKS</div>
-			<h2 class="sec-h center">From zero to AI-powered in minutes</h2>
-			<div class="steps">
-				<div class="step">
-					<div class="step-num">01</div>
-					<div class="step-icon">🔑</div>
-					<h3 class="step-t">Connect your models</h3>
-					<p class="step-d">Add your OpenAI, Anthropic, or Ollama key. Or use GUIDESOFT's built-in models. Zero config required.</p>
-				</div>
-				<div class="step-arr">→</div>
-				<div class="step">
-					<div class="step-num">02</div>
-					<div class="step-icon">📁</div>
-					<h3 class="step-t">Upload your knowledge</h3>
-					<p class="step-d">Drop in PDFs, documents, websites, or databases. AI instantly searches and cites from your data.</p>
-				</div>
-				<div class="step-arr">→</div>
-				<div class="step">
-					<div class="step-num">03</div>
-					<div class="step-icon">🚀</div>
-					<h3 class="step-t">Build &amp; ship</h3>
-					<p class="step-d">Create agents, automate workflows, embed in your app via API. Share with your team in one click.</p>
-				</div>
+			<!-- Typewriter Container -->
+			<div class="typewriter-box">
+				<span class="typing-content">{typingText}</span><span class="type-cursor">|</span>
 			</div>
-		</div>
-	</section>
 
-	<!-- ══ AI CAPABILITIES ══ -->
-	<section class="caps reveal" id="capabilities">
-		<div class="container">
-			<div class="caps-grid">
-				<div class="caps-left">
-					<div class="eyebrow">AI CAPABILITIES</div>
-					<h2 class="sec-h">The full spectrum of modern AI</h2>
-					{#each [
-						{ i: '💬', t: 'Chat & Conversation', d: 'Multi-turn conversations with memory, context windows up to 200K tokens' },
-						{ i: '🔍', t: 'RAG & Search', d: 'Semantic search over your documents with source citations and confidence scores' },
-						{ i: '🤖', t: 'Autonomous Agents', d: 'Multi-step task execution, web browsing, code running, API calling' },
-						{ i: '🎙️', t: 'Voice & Vision', d: 'Real-time speech-to-text, image analysis and OCR' }
-					] as cap}
-						<div class="cap-row">
-							<span class="cap-i">{cap.i}</span>
-							<div><div class="cap-t">{cap.t}</div><div class="cap-d">{cap.d}</div></div>
-						</div>
-					{/each}
-				</div>
-				<div class="caps-right">
-					<div class="models-box">
-						<div class="models-lbl">Supported Models</div>
-						<div class="models-wrap">
-							{#each ['GPT-4o', 'Claude 3.5', 'Gemini Pro', 'Llama 3', 'Mistral', 'Phi-3', 'Qwen', 'Deepseek'] as m}
-								<div class="model-chip">{m}</div>
-							{/each}
-						</div>
-						<div class="models-note">+ Any OpenAI-compatible endpoint</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<!-- ══ USE CASES ══ -->
-	<section class="uc reveal" id="use-cases">
-		<div class="container">
-			<div class="eyebrow center">USE CASES</div>
-			<h2 class="sec-h center">Built for how you work</h2>
-			<div class="uc-tabs">
-				{#each useCases as uc, i}
-					<button class="uc-tab" class:active={activeUseCase === i} on:click={() => (activeUseCase = i)} id="uc-tab-{i}">{uc.icon} {uc.tab}</button>
-				{/each}
-			</div>
-			<div class="uc-panel">
-				<div class="uc-text">
-					<h3 class="uc-h">{useCases[activeUseCase].headline}</h3>
-					<p class="uc-p">{useCases[activeUseCase].body}</p>
-					<ul class="uc-list">{#each useCases[activeUseCase].bullets as b}<li>✓ {b}</li>{/each}</ul>
-					<a href="/auth?mode=signup" class="btn-primary">Start Building →</a>
-				</div>
-				<div class="uc-vis"><div class="uc-emoji">{useCases[activeUseCase].emoji}</div></div>
-			</div>
-		</div>
-	</section>
-
-	<!-- ══ INTEGRATIONS ══ -->
-	<section class="integ reveal" id="integrations">
-		<div class="container">
-			<div class="eyebrow center">INTEGRATIONS</div>
-			<h2 class="sec-h center">Works with your entire stack</h2>
-			<div class="integ-grid">
-				{#each integrations as ig}<div class="integ-chip">{ig}</div>{/each}
-			</div>
-			<p class="integ-note">Full OpenAI-compatible REST API — drop GUIDESOFT into any codebase with <strong>zero code changes</strong>.</p>
-		</div>
-	</section>
-
-	<!-- ══ TESTIMONIALS ══ -->
-	<section class="testi reveal" id="testimonials">
-		<div class="container">
-			<div class="eyebrow center">TESTIMONIALS</div>
-			<h2 class="sec-h center">Loved by builders worldwide</h2>
-			<div class="testi-carousel">
-				{#each testimonials as t, i}
-					<div class="testi-card" class:active={testimonialIdx === i} class:prev={testimonialIdx === (i + 1) % testimonials.length}>
-						<div class="stars">{'★'.repeat(t.stars)}</div>
-						<p class="t-q">"{t.quote}"</p>
-						<div class="t-auth">
-							<div class="t-av">{t.avatar}</div>
-							<div><div class="t-name">{t.name}</div><div class="t-role">{t.role}</div></div>
-						</div>
-					</div>
-				{/each}
-			</div>
-			<div class="testi-dots">
-				{#each testimonials as _, i}
-					<button class="tdot" class:active={testimonialIdx === i} on:click={() => (testimonialIdx = i)} id="tdot-{i}"></button>
-				{/each}
-			</div>
-		</div>
-	</section>
-
-	<!-- ══ PRICING ══ -->
-	<section class="pricing reveal" id="pricing">
-		<div class="container">
-			<div class="eyebrow center">PRICING</div>
-			<h2 class="sec-h center">Start free. Scale as you grow.</h2>
-			<div class="bill-toggle">
-				<span class:on={!billingAnnual}>Monthly</span>
-				<button class="toggle" class:annual={billingAnnual} on:click={() => (billingAnnual = !billingAnnual)} id="billing-toggle">
-					<span class="thumb"></span>
-				</button>
-				<span class:on={billingAnnual}>Annual <span class="save">Save 30%</span></span>
-			</div>
-			<div class="plan-grid">
-				<div class="plan">
-					<div class="plan-name">Starter</div>
-					<div class="plan-desc">For individuals exploring AI</div>
-					<div class="plan-price"><span class="pa">$0</span><span class="pp">/mo</span></div>
-					<ul class="plan-list">
-						<li>✓ 100 messages/day</li><li>✓ GPT-3.5, Llama 3</li>
-						<li>✓ 3 knowledge bases</li><li>✓ 1 GB storage</li><li>✓ Community support</li>
-					</ul>
-					<a href="/auth?mode=signup" class="plan-btn" id="plan-free">Get Started Free</a>
-				</div>
-				<div class="plan featured">
-					<div class="plan-badge">Most Popular</div>
-					<div class="plan-name">Pro</div>
-					<div class="plan-desc">For power users and teams</div>
-					<div class="plan-price"><span class="pa">{billingAnnual ? '$14' : '$20'}</span><span class="pp">/mo</span></div>
-					<ul class="plan-list">
-						<li>✓ Unlimited messages</li><li>✓ All models (GPT-4o, Claude)</li>
-						<li>✓ Unlimited knowledge bases</li><li>✓ 100 GB storage</li>
-						<li>✓ API access</li><li>✓ Priority support</li>
-					</ul>
-					<a href="/auth?mode=signup&plan=pro" class="plan-btn primary" id="plan-pro">Start Pro Trial</a>
-				</div>
-				<div class="plan">
-					<div class="plan-name">Enterprise</div>
-					<div class="plan-desc">For organizations at scale</div>
-					<div class="plan-price"><span class="pa">Custom</span></div>
-					<ul class="plan-list">
-						<li>✓ Unlimited everything</li><li>✓ On-premise deployment</li>
-						<li>✓ SSO &amp; SAML</li><li>✓ SOC 2 compliance</li>
-						<li>✓ SLA guarantee</li><li>✓ Dedicated support</li>
-					</ul>
-					<a href="/auth?mode=signup&plan=enterprise" class="plan-btn" id="plan-enterprise">Contact Sales</a>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<!-- ══ FAQ ══ -->
-	<section class="faq reveal" id="faq">
-		<div class="container" style="max-width:780px">
-			<div class="eyebrow center">FAQ</div>
-			<h2 class="sec-h center">Common questions</h2>
-			<div class="faq-list">
-				{#each faqs as f, i}
-					<div class="faq-item" class:open={activeFaq === i}>
-						<button class="faq-q" on:click={() => (activeFaq = activeFaq === i ? -1 : i)} id="faq-{i}">
-							<span>{f.q}</span><span class="faq-ch">{activeFaq === i ? '−' : '+'}</span>
+			<!-- LobeHub-Style Chat Input Container -->
+			<div class="lobe-input-card" class:focused={inputFocused}>
+				<!-- Input Top Bar (Model Selector & Controls) -->
+				<div class="input-header">
+					<div class="model-picker-wrap">
+						<button
+							class="model-picker-trigger"
+							on:click={() => (showModelDropdown = !showModelDropdown)}
+						>
+							<span class="model-picker-icon">{models.find(m => m.id === selectedModel)?.icon}</span>
+							<span class="model-picker-name">{models.find(m => m.id === selectedModel)?.name}</span>
+							<span class="model-picker-badge">{models.find(m => m.id === selectedModel)?.provider}</span>
+							<span class="dropdown-arrow">▾</span>
 						</button>
-						{#if activeFaq === i}<div class="faq-a">{f.a}</div>{/if}
+
+						{#if showModelDropdown}
+							<div class="model-dropdown-menu">
+								<div class="menu-title">Select Active Model</div>
+								{#each models as m}
+									<button
+										class="dropdown-item"
+										class:selected={selectedModel === m.id}
+										on:click={() => { selectedModel = m.id; showModelDropdown = false; }}
+									>
+										<span class="m-icon">{m.icon}</span>
+										<div class="m-info">
+											<div class="m-name">{m.name}</div>
+											<div class="m-provider">{m.provider}</div>
+										</div>
+										{#if selectedModel === m.id}<span class="m-check">✓</span>{/if}
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+
+					<div class="input-actions-top">
+						<button class="icon-tool-btn" title="Agent Mode">🤖 <span class="tool-label">Agent Mode</span></button>
+						<button class="icon-tool-btn" title="Attach Document/PDF">📎 <span class="tool-label">Attach File</span></button>
+					</div>
+				</div>
+
+				<!-- Main Input Area -->
+				<div class="input-body">
+					<textarea
+						bind:value={prompt}
+						on:focus={() => (inputFocused = true)}
+						on:blur={() => (inputFocused = false)}
+						on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+						placeholder="Ask GUIDESOFT anything, generate code, or upload documents…"
+						class="lobe-textarea"
+						rows="3"
+					></textarea>
+				</div>
+
+				<!-- Input Footer & Send Button -->
+				<div class="input-footer">
+					<div class="input-footer-left">
+						<span class="privacy-badge">🔒 100% Private &amp; Encrypted</span>
+						<span class="shortcut-hint">Press <strong>Enter ↵</strong> to send</span>
+					</div>
+
+					<button class="send-btn" on:click={handleSend} disabled={!prompt.trim()}>
+						<span>Send Message</span>
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+					</button>
+				</div>
+			</div>
+
+			<!-- Quick Starter Prompts -->
+			<div class="starters-row">
+				<span class="starters-label">Try asking:</span>
+				{#each starters as s}
+					<button class="starter-chip" on:click={() => handleStarterClick(s.label, s.model)}>
+						<span class="starter-icon">{s.icon}</span>
+						<span class="starter-text">{s.label}</span>
+					</button>
+				{/each}
+			</div>
+
+			<!-- Platform Stats -->
+			<div class="stats-strip">
+				<div class="stat-box"><strong>50,000+</strong><span>Active Developers</span></div>
+				<div class="stat-sep"></div>
+				<div class="stat-box"><strong>12+</strong><span>LLM Providers</span></div>
+				<div class="stat-sep"></div>
+				<div class="stat-box"><strong>99.9%</strong><span>Uptime SLA</span></div>
+				<div class="stat-sep"></div>
+				<div class="stat-box"><strong>100%</strong><span>Open Source</span></div>
+			</div>
+		</div>
+	</section>
+
+	<!-- ══════════════════════════════════════════════════
+	     SUPPORTED MODELS MATRIX
+	════════════════════════════════════════════════════ -->
+	<section class="models-section reveal" id="models">
+		<div class="section-container">
+			<div class="section-badge center">MODEL MATRIX</div>
+			<h2 class="section-title center">One Interface, All World-Class AI Models</h2>
+			<p class="section-subtitle center">Connect your API keys or run completely offline with Ollama.</p>
+
+			<div class="models-grid">
+				{#each [
+					{ name: 'OpenAI GPT-4o', desc: 'Flagship multimodal model for complex reasoning and vision.', badge: 'GPT-4o', color: '#10a37f' },
+					{ name: 'Anthropic Claude 3.5', desc: 'Industry-leading coding, instruction following, and analysis.', badge: 'Claude 3.5', color: '#d97706' },
+					{ name: 'Google Gemini 1.5 Pro', desc: '1M token context window for massive codebase analysis.', badge: 'Gemini Pro', color: '#2563eb' },
+					{ name: 'DeepSeek V3 / R1', desc: 'Open-weights reasoning powerhouse with high cost efficiency.', badge: 'DeepSeek', color: '#7c3aed' },
+					{ name: 'Meta Llama 3.3 70B', desc: 'State-of-the-art open source model for self-hosted privacy.', badge: 'Llama 3.3', color: '#0284c7' },
+					{ name: 'Ollama & Local LLMs', desc: 'Run Llama, Mistral, and Qwen offline on your local GPU.', badge: 'Local GPU', color: '#059669' }
+				] as m}
+					<div class="model-card" style="--accent: {m.color}">
+						<div class="model-card-top">
+							<span class="m-badge" style="background: {m.color}20; color: {m.color}; border: 1px solid {m.color}40">{m.badge}</span>
+							<span class="m-dot" style="background: {m.color}"></span>
+						</div>
+						<h3 class="m-title">{m.name}</h3>
+						<p class="m-desc">{m.desc}</p>
 					</div>
 				{/each}
 			</div>
 		</div>
 	</section>
 
-	<!-- ══ CTA + FOOTER ══ -->
-	<section class="cta-sec reveal" id="cta">
-		<div class="container">
-			<div class="cta-box">
-				<div class="cta-orb"></div>
-				<div class="eyebrow center" style="color:#a78bfa">GET STARTED</div>
-				<h2 class="cta-h">Ready to build with AI?</h2>
-				<p class="cta-sub">Join 50,000+ teams already using GUIDESOFT. Start free — no credit card required.</p>
-				<div class="cta-btns">
-					<a href="/auth?mode=signup" class="btn-primary large" id="cta-main">Start for Free →</a>
-					<a href="/auth" class="btn-ghost-l" id="cta-signin">Sign In</a>
+	<!-- ══════════════════════════════════════════════════
+	     BENTO GRID FEATURES
+	════════════════════════════════════════════════════ -->
+	<section class="bento-section reveal" id="features">
+		<div class="section-container">
+			<div class="section-badge center">PLATFORM FEATURES</div>
+			<h2 class="section-title center">Engineered for Maximum AI Productivity</h2>
+			<p class="section-subtitle center">Built with modern UI standards, smooth animations, and clean ergonomics.</p>
+
+			<div class="bento-grid">
+				{#each bentoItems as item, i}
+					<div class="bento-card" style="animation-delay: {i * 70}ms">
+						<div class="bento-header">
+							<span class="bento-icon">{item.icon}</span>
+							<span class="bento-tag">{item.badge}</span>
+						</div>
+						<h3 class="bento-title">{item.title}</h3>
+						<p class="bento-desc">{item.desc}</p>
+					</div>
+				{/each}
+			</div>
+		</div>
+	</section>
+
+	<!-- ══════════════════════════════════════════════════
+	     AGENT MARKETPLACE / DISCOVER
+	════════════════════════════════════════════════════ -->
+	<section class="agents-section reveal" id="agents">
+		<div class="section-container">
+			<div class="section-badge center">AI AGENT MARKETPLACE</div>
+			<h2 class="section-title center">Pre-Built AI Agents for Every Role</h2>
+			<p class="section-subtitle center">Deploy specialized assistants with tailored prompt instructions and toolsets.</p>
+
+			<div class="agents-grid">
+				{#each agents as agent}
+					<div class="agent-card">
+						<div class="agent-avatar">{agent.avatar}</div>
+						<div class="agent-content">
+							<div class="agent-top">
+								<h3 class="agent-name">{agent.name}</h3>
+								<span class="agent-tag">{agent.tag}</span>
+							</div>
+							<p class="agent-desc">{agent.desc}</p>
+							<div class="agent-bottom">
+								<span class="agent-stars">⭐ {agent.stars} uses</span>
+								<a href="/auth?mode=signup" class="agent-use-btn">Use Agent →</a>
+							</div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	</section>
+
+	<!-- ══════════════════════════════════════════════════
+	     PRICING SECTION
+	════════════════════════════════════════════════════ -->
+	<section class="pricing-section reveal" id="pricing">
+		<div class="section-container">
+			<div class="section-badge center">PRICING</div>
+			<h2 class="section-title center">Transparent Pricing for Everyone</h2>
+
+			<div class="billing-switcher">
+				<span class:active={!billingAnnual}>Monthly</span>
+				<button class="switch-toggle" class:annual={billingAnnual} on:click={() => (billingAnnual = !billingAnnual)}>
+					<span class="switch-ball"></span>
+				</button>
+				<span class:active={billingAnnual}>Annual <span class="discount-badge">Save 30%</span></span>
+			</div>
+
+			<div class="pricing-cards-grid">
+				<!-- Community / Free -->
+				<div class="price-card">
+					<div class="price-title">Community</div>
+					<div class="price-desc">Self-Hosted &amp; Open Source</div>
+					<div class="price-amount"><span class="val">$0</span><span class="unit">/forever</span></div>
+					<ul class="price-features">
+						<li>✓ 100% Open Source</li>
+						<li>✓ Unlimited Local Ollama Chat</li>
+						<li>✓ Self-host via Docker</li>
+						<li>✓ Knowledge RAG Support</li>
+						<li>✓ Community Discord</li>
+					</ul>
+					<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="price-btn">Deploy Yourself</a>
+				</div>
+
+				<!-- Pro -->
+				<div class="price-card popular">
+					<div class="popular-ribbon">Most Popular</div>
+					<div class="price-title">Pro Cloud</div>
+					<div class="price-desc">For Individuals &amp; Power Users</div>
+					<div class="price-amount">
+						<span class="val">{billingAnnual ? '$14' : '$20'}</span>
+						<span class="unit">/month</span>
+					</div>
+					<ul class="price-features">
+						<li>✓ Unlimited Hosted Model Access</li>
+						<li>✓ GPT-4o, Claude 3.5 &amp; Gemini Pro</li>
+						<li>✓ Unlimited Document Knowledge Bases</li>
+						<li>✓ Pyodide Code Interpreter</li>
+						<li>✓ Priority Fast Response SLA</li>
+					</ul>
+					<a href="/auth?mode=signup&plan=pro" class="price-btn primary">Start Free Trial</a>
+				</div>
+
+				<!-- Enterprise -->
+				<div class="price-card">
+					<div class="price-title">Enterprise</div>
+					<div class="price-desc">For Organizations at Scale</div>
+					<div class="price-amount"><span class="val">Custom</span></div>
+					<ul class="price-features">
+						<li>✓ Private Cloud / On-Premise VPC</li>
+						<li>✓ Single Sign-On (SSO / SAML)</li>
+						<li>✓ Custom Agent Development</li>
+						<li>✓ SOC 2 &amp; HIPAA Compliance</li>
+						<li>✓ 24/7 Dedicated Support</li>
+					</ul>
+					<a href="/auth?mode=signup&plan=enterprise" class="price-btn">Contact Sales</a>
 				</div>
 			</div>
 		</div>
 	</section>
 
-	<footer class="footer">
-		<div class="container">
-			<div class="foot-grid">
-				<div class="foot-brand">
-					<div class="foot-logo">
-						<div class="nav-logo-mark sm">G</div>
-						<span>GUIDESOFT<span class="nav-logo-dot">.WEB</span></span>
+	<!-- ══════════════════════════════════════════════════
+	     FAQ SECTION
+	════════════════════════════════════════════════════ -->
+	<section class="faq-section reveal" id="faq">
+		<div class="section-container" style="max-width: 800px">
+			<div class="section-badge center">FAQ</div>
+			<h2 class="section-title center">Frequently Asked Questions</h2>
+
+			<div class="faq-accordion">
+				{#each faqs as item, i}
+					<div class="faq-card" class:open={activeFaq === i}>
+						<button class="faq-header-btn" on:click={() => (activeFaq = activeFaq === i ? -1 : i)}>
+							<span class="faq-question-text">{item.q}</span>
+							<span class="faq-icon">{activeFaq === i ? '−' : '+'}</span>
+						</button>
+						{#if activeFaq === i}
+							<div class="faq-body-text">{item.a}</div>
+						{/if}
 					</div>
-					<p class="foot-tag">The AI Platform for Everyone.<br />Open source. Self-hostable.</p>
-					<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="gh-link">GitHub →</a>
+				{/each}
+			</div>
+		</div>
+	</section>
+
+	<!-- ══════════════════════════════════════════════════
+	     FOOTER
+	════════════════════════════════════════════════════ -->
+	<footer class="footer">
+		<div class="footer-container">
+			<div class="footer-grid">
+				<div class="footer-brand-col">
+					<div class="brand-logo">
+						<div class="brand-icon">G</div>
+						<span class="brand-name">GUIDESOFT<span class="brand-accent">.WEB</span></span>
+					</div>
+					<p class="footer-desc">
+						The Open-Source AI Workspace.<br />
+						Empowering developers, teams, and enterprises with world-class AI models.
+					</p>
+					<div class="footer-social-row">
+						<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="social-chip">GitHub</a>
+						<span class="social-chip">Discord</span>
+						<span class="social-chip">Twitter / X</span>
+					</div>
 				</div>
-				<div class="foot-col">
-					<div class="foot-title">Product</div>
-					<a href="#features" class="foot-link">Features</a>
-					<a href="#pricing" class="foot-link">Pricing</a>
-					<a href="#integrations" class="foot-link">Integrations</a>
-					<a href="/auth" class="foot-link">Sign In</a>
+
+				<div class="footer-col">
+					<div class="footer-col-head">Product</div>
+					<a href="#features" class="footer-link">Features</a>
+					<a href="#models" class="footer-link">Models</a>
+					<a href="#agents" class="footer-link">Agent Market</a>
+					<a href="#pricing" class="footer-link">Pricing</a>
 				</div>
-				<div class="foot-col">
-					<div class="foot-title">Developers</div>
-					<a href="/auth" class="foot-link">API Reference</a>
-					<a href="#" class="foot-link">Documentation</a>
-					<a href="#" class="foot-link">SDKs</a>
-					<a href="#" class="foot-link">Open Source</a>
+
+				<div class="footer-col">
+					<div class="footer-col-head">Developers</div>
+					<a href="/auth" class="footer-link">API Docs</a>
+					<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="footer-link">GitHub Repo</a>
+					<a href="#" class="footer-link">Self-Host Guide</a>
+					<a href="#" class="footer-link">Docker Hub</a>
 				</div>
-				<div class="foot-col">
-					<div class="foot-title">Company</div>
-					<a href="#" class="foot-link">About</a>
-					<a href="#" class="foot-link">Blog</a>
-					<a href="#" class="foot-link">Privacy Policy</a>
-					<a href="#" class="foot-link">Terms</a>
+
+				<div class="footer-col">
+					<div class="footer-col-head">Legal</div>
+					<a href="#" class="footer-link">Privacy Policy</a>
+					<a href="#" class="footer-link">Terms of Service</a>
+					<a href="#" class="footer-link">Security Policy</a>
 				</div>
 			</div>
-			<div class="foot-bottom">
+
+			<div class="footer-bottom-bar">
 				<span>© 2024 GUIDESOFT.WEB. All rights reserved.</span>
-				<span>Made with ✦ for the AI generation</span>
+				<span>Powered by Ant Design X &amp; SvelteKit</span>
 			</div>
 		</div>
 	</footer>
@@ -553,254 +558,410 @@
 </div>
 
 <style>
-:global(body){margin:0;padding:0;background:#080810;color:#e2e2ef;font-family:'Inter',system-ui,sans-serif;overflow-x:hidden;}
-:global(*){box-sizing:border-box;}
-:global(a){text-decoration:none;}
-.landing{width:100%;}
+	:global(body) {
+		margin: 0; padding: 0;
+		background: #09090b;
+		color: #f4f4f5;
+		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		overflow-x: hidden;
+	}
+	:global(*) { box-sizing: border-box; }
+	:global(a) { text-decoration: none; }
 
-/* ── Shared ── */
-.container{max-width:1200px;margin:0 auto;padding:0 24px;}
-.eyebrow{font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#7c3aed;margin-bottom:12px;}
-.center{text-align:center;}
-.sec-h{font-family:'Syne',sans-serif;font-size:clamp(26px,4vw,46px);font-weight:700;line-height:1.15;color:#f0f0ff;margin:0 0 16px;}
-.sec-p{font-size:16px;color:#7777aa;line-height:1.7;margin:0 0 20px;}
-.gradient-text{background:linear-gradient(135deg,#a78bfa 0%,#60a5fa 50%,#34d399 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.reveal{opacity:0;transform:translateY(28px);transition:opacity 0.7s ease,transform 0.7s ease;}
-:global(.revealed){opacity:1!important;transform:none!important;}
-.pill{display:inline-flex;align-items:center;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;padding:5px 13px;border-radius:100px;font-size:13px;font-weight:500;margin:3px;}
-.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:20px;}
+	.lobe-landing { width: 100%; position: relative; }
 
-/* ── Buttons ── */
-.btn-primary{display:inline-flex;align-items:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:all 0.2s;box-shadow:0 0 24px rgba(124,58,237,0.35);}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 36px rgba(124,58,237,0.55);}
-.btn-primary.large{padding:16px 36px;font-size:16px;}
-.btn-primary-sm{display:inline-flex;align-items:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:9px 18px;border-radius:8px;font-size:14px;font-weight:600;transition:all 0.2s;}
-.btn-primary-sm:hover{transform:translateY(-1px);}
-.btn-outline{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,0.15);color:#c4c4d8;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:500;transition:all 0.2s;}
-.btn-outline:hover{border-color:rgba(167,139,250,0.5);color:#a78bfa;}
-.btn-ghost{color:#9999bb;font-size:14px;font-weight:500;padding:8px 14px;border-radius:8px;transition:color 0.2s;}
-.btn-ghost:hover{color:#e0e0f0;}
-.btn-ghost-l{color:#c4c4d8;font-size:16px;font-weight:500;padding:14px 24px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);transition:all 0.2s;}
-.btn-ghost-l:hover{border-color:rgba(167,139,250,0.4);}
+	/* ── Header ── */
+	.header {
+		position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+		padding: 16px 32px;
+		transition: background 0.3s, backdrop-filter 0.3s, border-bottom 0.3s;
+	}
+	.header.scrolled {
+		background: rgba(9, 9, 11, 0.85);
+		backdrop-filter: blur(16px);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	}
+	.header-container {
+		max-width: 1240px; margin: 0 auto;
+		display: flex; align-items: center; justify-content: space-between;
+	}
+	.brand-logo {
+		display: flex; align-items: center; gap: 10px;
+		color: #fff; font-size: 16px; font-weight: 700;
+	}
+	.brand-icon {
+		width: 32px; height: 32px; border-radius: 8px;
+		background: linear-gradient(135deg, #10b981, #059669);
+		display: flex; align-items: center; justify-content: center;
+		color: #fff; font-weight: 800; font-size: 16px;
+	}
+	.brand-name { font-family: 'Syne', sans-serif; }
+	.brand-accent { color: #10b981; }
+	.brand-tag {
+		background: rgba(16, 185, 129, 0.15); color: #34d399;
+		padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;
+	}
 
-/* ── HERO ── */
-.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(124,58,237,0.25) 0%,transparent 70%),#080810;}
-.hero-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;}
-.orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;}
-.orb-1{width:600px;height:600px;background:radial-gradient(circle,rgba(124,58,237,0.18) 0%,transparent 70%);top:-200px;left:-100px;animation:f1 8s ease-in-out infinite;}
-.orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(37,99,235,0.14) 0%,transparent 70%);bottom:-150px;right:-100px;animation:f2 10s ease-in-out infinite;}
-.orb-3{width:300px;height:300px;background:radial-gradient(circle,rgba(52,211,153,0.1) 0%,transparent 70%);top:40%;left:60%;animation:f3 12s ease-in-out infinite;}
-@keyframes f1{0%,100%{transform:translate(0,0);}50%{transform:translate(30px,20px);}}
-@keyframes f2{0%,100%{transform:translate(0,0);}50%{transform:translate(-20px,-30px);}}
-@keyframes f3{0%,100%{transform:translate(0,0);}50%{transform:translate(15px,-15px);}}
-.hero-grid{position:absolute;inset:0;z-index:1;background-image:linear-gradient(rgba(124,58,237,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,0.06) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse 80% 70% at 50% 50%,black 30%,transparent 80%);}
+	.nav-links { display: flex; gap: 8px; }
+	.nav-item {
+		color: #a1a1aa; padding: 6px 14px; border-radius: 6px;
+		font-size: 14px; font-weight: 500; transition: color 0.2s;
+	}
+	.nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
 
-/* Nav */
-.nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 32px;transition:background 0.3s,backdrop-filter 0.3s;}
-.nav-scrolled{background:rgba(8,8,16,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(124,58,237,0.12);}
-.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:32px;}
-.nav-logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;color:#f0f0ff;}
-.nav-logo-mark{width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;}
-.nav-logo-mark.sm{width:28px;height:28px;font-size:14px;}
-.nav-logo-text{font-family:'Syne',sans-serif;}
-.nav-logo-dot{color:#7c3aed;}
-.nav-links{display:flex;gap:4px;flex:1;justify-content:center;}
-.nav-link{padding:7px 14px;border-radius:8px;color:#9999bb;font-size:14px;font-weight:500;transition:color 0.2s,background 0.2s;}
-.nav-link:hover{color:#e0e0f0;background:rgba(255,255,255,0.05);}
-.nav-actions{display:flex;align-items:center;gap:8px;}
+	.nav-right { display: flex; align-items: center; gap: 10px; }
+	.gh-star-btn {
+		display: inline-flex; align-items: center; gap: 6px;
+		padding: 7px 12px; border-radius: 8px;
+		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		color: #e4e4e7; font-size: 13px; font-weight: 500;
+		transition: border-color 0.2s;
+	}
+	.gh-star-btn:hover { border-color: rgba(255, 255, 255, 0.25); color: #fff; }
+	.star-count {
+		background: rgba(255, 255, 255, 0.1); padding: 1px 6px;
+		border-radius: 4px; font-size: 11px; color: #a1a1aa;
+	}
 
-/* Hero content */
-.hero-content{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center;text-align:center;padding:100px 24px 60px;max-width:860px;opacity:0;transform:translateY(24px);transition:opacity 0.8s ease,transform 0.8s ease;}
-.hero-content.loaded{opacity:1;transform:none;}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.35);color:#a78bfa;padding:7px 16px;border-radius:100px;font-size:13px;font-weight:500;margin-bottom:28px;}
-.badge-dot{width:6px;height:6px;border-radius:50%;background:#7c3aed;box-shadow:0 0 8px #7c3aed;animation:pulse 2s ease-in-out infinite;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
-.hero-heading{font-family:'Syne',sans-serif;font-size:clamp(42px,7vw,80px);font-weight:800;line-height:1.1;color:#f0f0ff;margin:0 0 20px;}
-.hero-sub{font-size:clamp(17px,2.5vw,21px);color:#7777aa;line-height:1.6;margin:0 0 36px;}
+	.btn-secondary {
+		padding: 8px 16px; border-radius: 8px; color: #e4e4e7;
+		font-size: 14px; font-weight: 500; transition: color 0.2s;
+	}
+	.btn-secondary:hover { color: #fff; }
+	.btn-gradient {
+		padding: 9px 18px; border-radius: 8px;
+		background: linear-gradient(135deg, #10b981, #059669);
+		color: #fff; font-size: 14px; font-weight: 600;
+		transition: opacity 0.2s, transform 0.2s;
+	}
+	.btn-gradient:hover { opacity: 0.92; transform: translateY(-1px); }
 
-/* Prompt box */
-.hero-prompt-wrap{display:flex;align-items:center;width:100%;max-width:680px;background:rgba(255,255,255,0.04);border:1.5px solid rgba(124,58,237,0.25);border-radius:14px;padding:10px 12px 10px 16px;gap:12px;transition:border-color 0.2s,box-shadow 0.2s;margin-bottom:12px;}
-.hero-prompt-wrap.focused{border-color:rgba(124,58,237,0.7);box-shadow:0 0 0 4px rgba(124,58,237,0.1),0 0 40px rgba(124,58,237,0.15);}
-.prompt-icon{color:#7c3aed;font-size:18px;flex-shrink:0;}
-.hero-prompt-input{flex:1;background:none;border:none;outline:none;color:#e2e2ef;font-size:16px;font-family:'Inter',sans-serif;padding:6px 0;}
-.hero-prompt-input::placeholder{color:rgba(120,120,170,0.7);}
-.prompt-submit{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#6d28d9);border:none;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;box-shadow:0 0 16px rgba(124,58,237,0.4);}
-.prompt-submit:hover{transform:scale(1.08);box-shadow:0 0 24px rgba(124,58,237,0.6);}
-.prompt-hint{font-size:12px;color:#555577;margin:0 0 32px;}
-.hero-cta{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:48px;}
-.hero-stats{display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center;}
-.stat{display:flex;flex-direction:column;align-items:center;}
-.stat strong{font-size:22px;font-weight:700;color:#f0f0ff;}
-.stat span{font-size:12px;color:#6666aa;text-transform:uppercase;letter-spacing:1px;}
-.stat-divider{width:1px;height:32px;background:rgba(255,255,255,0.1);}
-.scroll-hint{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);z-index:10;}
-.scroll-dot{width:6px;height:30px;border:2px solid rgba(124,58,237,0.5);border-radius:10px;position:relative;overflow:hidden;}
-.scroll-dot::after{content:'';position:absolute;top:4px;left:50%;transform:translateX(-50%);width:2px;height:8px;background:#7c3aed;border-radius:2px;animation:sd 2s ease-in-out infinite;}
-@keyframes sd{0%,100%{transform:translateX(-50%) translateY(0);opacity:1;}80%{transform:translateX(-50%) translateY(12px);opacity:0;}}
+	/* ── Hero Section ── */
+	.hero-section {
+		position: relative; min-height: 100vh;
+		padding: 140px 24px 80px;
+		display: flex; align-items: center; justify-content: center;
+		overflow: hidden;
+	}
+	.hero-background-gradient {
+		position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+		width: 900px; height: 500px; border-radius: 50%;
+		background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(37, 99, 235, 0.08) 50%, transparent 80%);
+		filter: blur(80px); pointer-events: none;
+	}
+	.hero-grid-overlay {
+		position: absolute; inset: 0; pointer-events: none;
+		background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+		                  linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+		background-size: 40px 40px;
+		mask-image: radial-gradient(circle at 50% 30%, black 30%, transparent 75%);
+	}
 
-/* ── TRUSTED ── */
-.trusted{padding:40px 0;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);overflow:hidden;}
-.trusted-label{text-align:center;font-size:12px;color:#5555aa;letter-spacing:2px;text-transform:uppercase;margin:0 0 20px;}
-.ticker-wrap{overflow:hidden;}
-.ticker-track{display:flex;width:max-content;animation:tick 25s linear infinite;}
-.ticker-item{padding:8px 40px;font-size:15px;font-weight:600;color:#4444aa;border-right:1px solid rgba(124,58,237,0.12);white-space:nowrap;transition:color 0.3s;}
-.ticker-item:hover{color:#a78bfa;}
-@keyframes tick{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+	.hero-container {
+		position: relative; z-index: 10;
+		max-width: 880px; margin: 0 auto; text-align: center;
+	}
 
-/* ── WHAT IS ── */
-.what-is{padding:100px 0;}
-.what-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;}
-.what-left .sec-p{color:#7777aa;margin-bottom:12px;}
-.ui-mock{background:rgba(255,255,255,0.03);border:1px solid rgba(124,58,237,0.2);border-radius:16px;overflow:hidden;box-shadow:0 0 60px rgba(124,58,237,0.12);}
-.ui-mock-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(124,58,237,0.1);background:rgba(124,58,237,0.05);}
-.ui-dots{display:flex;gap:6px;}
-.ui-dots span{width:10px;height:10px;border-radius:50%;}
-.ui-dots span:nth-child(1){background:#ff5f57;}
-.ui-dots span:nth-child(2){background:#febc2e;}
-.ui-dots span:nth-child(3){background:#28c840;}
-.ui-title-label{font-size:13px;color:#6666aa;margin:0 auto;}
-.ui-mock-body{padding:20px;display:flex;flex-direction:column;gap:14px;}
-.ui-msg{padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.5;}
-.ui-msg.user{background:rgba(124,58,237,0.2);color:#d4c4fa;border:1px solid rgba(124,58,237,0.3);align-self:flex-end;max-width:85%;}
-.ui-msg.bot{background:rgba(255,255,255,0.04);color:#aaaacc;border:1px solid rgba(255,255,255,0.08);}
-.model-tag{display:inline-flex;background:rgba(124,58,237,0.2);color:#a78bfa;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;margin-bottom:8px;}
-.mini-chart{display:flex;align-items:flex-end;gap:4px;height:48px;margin-top:12px;}
-.mini-bar{flex:1;background:rgba(124,58,237,0.3);border-radius:3px 3px 0 0;}
-.mini-bar.hi{background:#7c3aed;box-shadow:0 0 12px rgba(124,58,237,0.5);}
-.ui-input{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;font-size:13px;color:#4444aa;}
-.send{width:24px;height:24px;background:#7c3aed;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;}
+	.hero-badge {
+		display: inline-flex; align-items: center; gap: 8px;
+		padding: 6px 16px; border-radius: 100px;
+		background: rgba(16, 185, 129, 0.1);
+		border: 1px solid rgba(16, 185, 129, 0.25);
+		color: #34d399; font-size: 13px; font-weight: 500;
+		margin-bottom: 24px;
+	}
 
-/* ── FEATURES ── */
-.features{padding:100px 0;}
-.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:48px;}
-.feat-card{position:relative;overflow:hidden;padding:28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);transition:all 0.3s;cursor:default;}
-.feat-card:hover{border-color:var(--a);box-shadow:0 0 30px rgba(0,0,0,0.3),0 0 1px var(--a);transform:translateY(-4px);}
-.feat-icon{font-size:28px;margin-bottom:14px;}
-.feat-title{font-size:17px;font-weight:600;color:#e0e0f0;margin:0 0 8px;}
-.feat-desc{font-size:14px;color:#6666aa;line-height:1.6;margin:0;}
-.feat-glow{position:absolute;bottom:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:var(--a);opacity:0;filter:blur(40px);transition:opacity 0.3s;}
-.feat-card:hover .feat-glow{opacity:0.18;}
+	.hero-title {
+		font-family: 'Syne', sans-serif;
+		font-size: clamp(38px, 6vw, 68px);
+		font-weight: 800; line-height: 1.1; color: #fff;
+		margin: 0 0 20px;
+	}
+	.gradient-text {
+		background: linear-gradient(135deg, #34d399 0%, #60a5fa 50%, #a78bfa 100%);
+		-webkit-background-clip: text; -webkit-text-fill-color: transparent;
+	}
 
-/* ── HOW IT WORKS ── */
-.how{padding:100px 0;}
-.steps{display:flex;align-items:flex-start;justify-content:center;margin-top:60px;}
-.step{flex:1;max-width:280px;display:flex;flex-direction:column;align-items:center;text-align:center;}
-.step-num{font-family:'Syne',sans-serif;font-size:48px;font-weight:800;color:rgba(124,58,237,0.15);line-height:1;margin-bottom:-10px;}
-.step-icon{width:64px;height:64px;border-radius:16px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:20px;position:relative;z-index:1;}
-.step-t{font-size:18px;font-weight:600;color:#e0e0f0;margin:0 0 10px;}
-.step-d{font-size:14px;color:#6666aa;line-height:1.6;margin:0;}
-.step-arr{font-size:24px;color:rgba(124,58,237,0.4);align-self:center;padding:0 20px;margin-top:-20px;}
+	.typewriter-box {
+		font-size: 18px; color: #a1a1aa; min-height: 28px;
+		margin-bottom: 36px;
+	}
+	.typing-content { color: #34d399; font-weight: 500; }
+	.type-cursor { color: #10b981; animation: blink 1s infinite; }
+	@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
 
-/* ── AI CAPABILITIES ── */
-.caps{padding:100px 0;background:rgba(124,58,237,0.03);}
-.caps-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;}
-.cap-row{display:flex;gap:16px;align-items:flex-start;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
-.cap-i{font-size:22px;flex-shrink:0;}
-.cap-t{font-size:15px;font-weight:600;color:#e0e0f0;margin-bottom:4px;}
-.cap-d{font-size:13px;color:#5555aa;line-height:1.5;}
-.models-box{background:rgba(255,255,255,0.03);border:1px solid rgba(124,58,237,0.2);border-radius:20px;padding:32px;}
-.models-lbl{font-size:12px;color:#7c3aed;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;}
-.models-wrap{display:flex;flex-wrap:wrap;gap:10px;}
-.model-chip{padding:8px 16px;border-radius:100px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);color:#a78bfa;font-size:13px;font-weight:500;transition:all 0.2s;}
-.model-chip:hover{background:rgba(124,58,237,0.25);transform:scale(1.04);}
-.models-note{font-size:12px;color:#4444aa;margin-top:16px;}
+	/* ── LobeHub Style Input Card ── */
+	.lobe-input-card {
+		background: rgba(24, 24, 27, 0.75);
+		border: 1.5px solid rgba(255, 255, 255, 0.12);
+		border-radius: 20px;
+		backdrop-filter: blur(20px);
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 30px rgba(16, 185, 129, 0.08);
+		padding: 14px 18px;
+		text-align: left; transition: border-color 0.2s, box-shadow 0.2s;
+	}
+	.lobe-input-card.focused {
+		border-color: rgba(16, 185, 129, 0.6);
+		box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12), 0 20px 60px rgba(0, 0, 0, 0.5);
+	}
 
-/* ── USE CASES ── */
-.uc{padding:100px 0;}
-.uc-tabs{display:flex;gap:8px;justify-content:center;margin:40px 0 48px;flex-wrap:wrap;}
-.uc-tab{padding:10px 24px;border-radius:100px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#6666aa;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;font-family:'Inter',sans-serif;}
-.uc-tab.active,.uc-tab:hover{background:rgba(124,58,237,0.2);border-color:rgba(124,58,237,0.5);color:#a78bfa;}
-.uc-panel{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
-.uc-h{font-family:'Syne',sans-serif;font-size:30px;font-weight:700;color:#f0f0ff;margin:0 0 16px;}
-.uc-p{font-size:16px;color:#6666aa;line-height:1.7;margin:0 0 24px;}
-.uc-list{list-style:none;padding:0;margin:0 0 32px;display:flex;flex-direction:column;gap:10px;}
-.uc-list li{font-size:14px;color:#8888aa;}
-.uc-vis{display:flex;align-items:center;justify-content:center;aspect-ratio:1;max-width:280px;margin:0 auto;background:radial-gradient(circle,rgba(124,58,237,0.15) 0%,transparent 70%);border-radius:50%;}
-.uc-emoji{font-size:72px;}
+	.input-header {
+		display: flex; align-items: center; justify-content: space-between;
+		margin-bottom: 10px;
+	}
+	.model-picker-wrap { position: relative; }
+	.model-picker-trigger {
+		display: flex; align-items: center; gap: 8px;
+		padding: 6px 12px; border-radius: 8px;
+		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		color: #fff; font-size: 13px; font-weight: 500;
+		cursor: pointer; transition: background 0.2s;
+	}
+	.model-picker-trigger:hover { background: rgba(255, 255, 255, 0.1); }
+	.model-picker-badge {
+		background: rgba(16, 185, 129, 0.2); color: #34d399;
+		padding: 2px 6px; border-radius: 4px; font-size: 11px;
+	}
 
-/* ── INTEGRATIONS ── */
-.integ{padding:100px 0;}
-.integ-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:40px 0;}
-.integ-chip{padding:10px 20px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8888aa;font-size:14px;font-weight:500;transition:all 0.2s;}
-.integ-chip:hover{background:rgba(124,58,237,0.1);border-color:rgba(124,58,237,0.3);color:#a78bfa;transform:translateY(-2px);}
-.integ-note{text-align:center;color:#5555aa;font-size:15px;}
-.integ-note strong{color:#a78bfa;}
+	.model-dropdown-menu {
+		position: absolute; top: 110%; left: 0; z-index: 50;
+		width: 260px; background: #18181b;
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 12px; padding: 8px;
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+	}
+	.menu-title { font-size: 11px; color: #71717a; padding: 4px 8px; text-transform: uppercase; }
+	.dropdown-item {
+		width: 100%; display: flex; align-items: center; gap: 10px;
+		padding: 8px 10px; border-radius: 6px; background: none;
+		border: none; color: #e4e4e7; text-align: left;
+		cursor: pointer; transition: background 0.2s;
+	}
+	.dropdown-item:hover, .dropdown-item.selected { background: rgba(255, 255, 255, 0.08); }
+	.m-name { font-size: 13px; font-weight: 500; color: #fff; }
+	.m-provider { font-size: 11px; color: #71717a; }
 
-/* ── TESTIMONIALS ── */
-.testi{padding:100px 0;}
-.testi-carousel{position:relative;height:240px;margin:40px 0 24px;overflow:hidden;}
-.testi-card{position:absolute;inset:0;max-width:700px;margin:0 auto;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:36px;opacity:0;transform:translateX(40px);transition:all 0.5s ease;pointer-events:none;}
-.testi-card.active{opacity:1;transform:none;pointer-events:auto;}
-.testi-card.prev{opacity:0;transform:translateX(-40px);}
-.stars{color:#7c3aed;font-size:18px;margin-bottom:16px;}
-.t-q{font-size:17px;color:#c4c4da;line-height:1.65;margin:0 0 24px;font-style:italic;}
-.t-auth{display:flex;align-items:center;gap:14px;}
-.t-av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#2563eb);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;}
-.t-name{font-size:14px;font-weight:600;color:#e0e0f0;}
-.t-role{font-size:12px;color:#5555aa;}
-.testi-dots{display:flex;gap:8px;justify-content:center;}
-.tdot{width:8px;height:8px;border-radius:50%;border:none;cursor:pointer;background:rgba(124,58,237,0.25);transition:all 0.2s;}
-.tdot.active{background:#7c3aed;transform:scale(1.4);}
+	.input-actions-top { display: flex; gap: 6px; }
+	.icon-tool-btn {
+		display: flex; align-items: center; gap: 5px;
+		padding: 5px 10px; border-radius: 6px;
+		background: rgba(255, 255, 255, 0.04);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		color: #a1a1aa; font-size: 12px; cursor: pointer;
+	}
+	.icon-tool-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
 
-/* ── PRICING ── */
-.pricing{padding:100px 0;background:rgba(124,58,237,0.03);}
-.bill-toggle{display:flex;align-items:center;gap:14px;justify-content:center;margin:32px 0 48px;font-size:14px;color:#6666aa;}
-.bill-toggle span.on{color:#e0e0f0;font-weight:600;}
-.toggle{width:48px;height:26px;border-radius:100px;background:rgba(255,255,255,0.1);border:none;cursor:pointer;position:relative;transition:background 0.2s;}
-.toggle.annual{background:#7c3aed;}
-.thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform 0.2s;}
-.toggle.annual .thumb{transform:translateX(22px);}
-.save{background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);color:#34d399;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;margin-left:6px;}
-.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
-.plan{position:relative;padding:36px 32px;border-radius:20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;}
-.plan.featured{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.08);box-shadow:0 0 40px rgba(124,58,237,0.15);}
-.plan-badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:4px 16px;border-radius:100px;font-size:12px;font-weight:600;white-space:nowrap;}
-.plan-name{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#f0f0ff;margin-bottom:6px;}
-.plan-desc{font-size:13px;color:#5555aa;margin-bottom:24px;}
-.plan-price{margin-bottom:28px;}
-.pa{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:#f0f0ff;}
-.pp{font-size:14px;color:#5555aa;margin-left:4px;}
-.plan-list{list-style:none;padding:0;margin:0 0 32px;display:flex;flex-direction:column;gap:12px;flex:1;}
-.plan-list li{font-size:14px;color:#8888aa;}
-.plan-btn{display:flex;align-items:center;justify-content:center;padding:13px 0;border-radius:10px;border:1px solid rgba(255,255,255,0.12);color:#8888aa;font-size:14px;font-weight:600;transition:all 0.2s;}
-.plan-btn:hover{border-color:rgba(124,58,237,0.4);color:#a78bfa;}
-.plan-btn.primary{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:transparent;color:#fff;box-shadow:0 0 24px rgba(124,58,237,0.35);}
-.plan-btn.primary:hover{box-shadow:0 0 40px rgba(124,58,237,0.55);transform:translateY(-2px);}
+	.input-body { margin-bottom: 10px; }
+	.lobe-textarea {
+		width: 100%; background: none; border: none; outline: none;
+		color: #fff; font-size: 15px; font-family: inherit;
+		resize: none; line-height: 1.5;
+	}
+	.lobe-textarea::placeholder { color: #71717a; }
 
-/* ── FAQ ── */
-.faq{padding:100px 0;}
-.faq-list{margin-top:48px;display:flex;flex-direction:column;gap:4px;}
-.faq-item{border:1px solid rgba(255,255,255,0.07);border-radius:12px;overflow:hidden;transition:border-color 0.2s;}
-.faq-item.open{border-color:rgba(124,58,237,0.35);}
-.faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;background:transparent;border:none;cursor:pointer;text-align:left;color:#c4c4da;font-size:16px;font-weight:500;transition:color 0.2s;font-family:'Inter',sans-serif;}
-.faq-q:hover{color:#e0e0f0;}
-.faq-item.open .faq-q{color:#e0e0f0;}
-.faq-ch{font-size:20px;color:#7c3aed;flex-shrink:0;}
-.faq-a{padding:0 24px 20px;color:#6666aa;font-size:15px;line-height:1.7;animation:fi 0.25s ease;}
-@keyframes fi{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+	.input-footer {
+		display: flex; align-items: center; justify-content: space-between;
+		padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	.input-footer-left { font-size: 12px; color: #71717a; display: flex; gap: 16px; }
+	.privacy-badge { color: #10b981; }
 
-/* ── CTA ── */
-.cta-sec{padding:120px 0;}
-.cta-box{position:relative;overflow:hidden;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:28px;padding:80px 40px;text-align:center;}
-.cta-orb{position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,0.25) 0%,transparent 70%);filter:blur(60px);pointer-events:none;}
-.cta-h{font-family:'Syne',sans-serif;font-size:clamp(36px,5vw,60px);font-weight:800;color:#f0f0ff;margin:16px 0 20px;}
-.cta-sub{font-size:18px;color:#7777aa;margin:0 auto 40px;max-width:500px;}
-.cta-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+	.send-btn {
+		display: flex; align-items: center; gap: 8px;
+		padding: 9px 18px; border-radius: 10px;
+		background: linear-gradient(135deg, #10b981, #059669);
+		color: #fff; font-size: 13px; font-weight: 600;
+		border: none; cursor: pointer; transition: opacity 0.2s;
+	}
+	.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── FOOTER ── */
-.footer{padding:60px 0 40px;border-top:1px solid rgba(255,255,255,0.06);}
-.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px;}
-.foot-logo{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#f0f0ff;margin-bottom:14px;}
-.foot-tag{font-size:14px;color:#5555aa;line-height:1.6;margin:0 0 20px;}
-.gh-link{font-size:13px;color:#5555aa;font-weight:500;padding:6px 14px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.2s;}
-.gh-link:hover{color:#a78bfa;border-color:rgba(124,58,237,0.3);}
-.foot-col{display:flex;flex-direction:column;gap:10px;}
-.foot-title{font-size:13px;font-weight:600;color:#6666aa;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
-.foot-link{font-size:14px;color:#5555aa;transition:color 0.2s;}
-.foot-link:hover{color:#c4c4da;}
-.foot-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:24px;border-top:1px solid rgba(255,255,255,0.05);font-size:13px;color:#4444aa;flex-wrap:wrap;gap:8px;}
+	/* Starters */
+	.starters-row {
+		display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+		margin: 20px 0 40px; justify-content: center;
+	}
+	.starters-label { font-size: 12px; color: #71717a; }
+	.starter-chip {
+		display: flex; align-items: center; gap: 6px;
+		padding: 6px 12px; border-radius: 100px;
+		background: rgba(255, 255, 255, 0.04);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		color: #d4d4d8; font-size: 12px; cursor: pointer;
+		transition: all 0.2s;
+	}
+	.starter-chip:hover {
+		background: rgba(16, 185, 129, 0.12);
+		border-color: rgba(16, 185, 129, 0.3); color: #34d399;
+	}
 
-/* ── Responsive ── */
-@media(max-width:900px){.what-grid,.caps-grid,.uc-panel{grid-template-columns:1fr;}.feat-grid,.plan-grid{grid-template-columns:1fr 1fr;}.foot-grid{grid-template-columns:1fr 1fr;}.steps{flex-direction:column;align-items:center;}.step-arr{transform:rotate(90deg);padding:8px 0;}}
-@media(max-width:600px){.nav-links{display:none;}.feat-grid,.plan-grid{grid-template-columns:1fr;}.foot-grid{grid-template-columns:1fr;}.testi-carousel{height:300px;}}
+	/* Stats Strip */
+	.stats-strip {
+		display: flex; align-items: center; justify-content: center;
+		gap: 28px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	.stat-box { display: flex; flex-direction: column; }
+	.stat-box strong { font-size: 20px; font-weight: 700; color: #fff; }
+	.stat-box span { font-size: 11px; color: #71717a; text-transform: uppercase; letter-spacing: 1px; }
+	.stat-sep { width: 1px; height: 28px; background: rgba(255, 255, 255, 0.08); }
+
+	/* ── Shared Sections ── */
+	.section-container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+	.section-badge {
+		font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #10b981;
+		margin-bottom: 12px; text-transform: uppercase;
+	}
+	.center { text-align: center; }
+	.section-title {
+		font-family: 'Syne', sans-serif; font-size: clamp(28px, 4vw, 44px);
+		font-weight: 700; color: #fff; margin: 0 0 14px;
+	}
+	.section-subtitle {
+		font-size: 16px; color: #a1a1aa; margin: 0 auto 50px; max-width: 580px;
+	}
+
+	.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
+	:global(.revealed) { opacity: 1 !important; transform: none !important; }
+
+	/* ── Models Matrix ── */
+	.models-section { padding: 100px 0; background: rgba(255, 255, 255, 0.01); }
+	.models-grid {
+		display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+		gap: 20px;
+	}
+	.model-card {
+		padding: 24px; border-radius: 16px;
+		background: rgba(24, 24, 27, 0.6);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		transition: transform 0.2s, border-color 0.2s;
+	}
+	.model-card:hover {
+		transform: translateY(-4px); border-color: var(--accent);
+	}
+	.model-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+	.m-badge { padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+	.m-dot { width: 8px; height: 8px; border-radius: 50%; }
+	.m-title { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 8px; }
+	.m-desc { font-size: 14px; color: #a1a1aa; line-height: 1.5; margin: 0; }
+
+	/* ── Bento Grid ── */
+	.bento-section { padding: 100px 0; }
+	.bento-grid {
+		display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+	}
+	.bento-card {
+		padding: 28px; border-radius: 18px;
+		background: rgba(24, 24, 27, 0.6);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		transition: all 0.2s;
+	}
+	.bento-card:hover { border-color: rgba(16, 185, 129, 0.4); transform: translateY(-3px); }
+	.bento-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+	.bento-icon { font-size: 28px; }
+	.bento-tag {
+		background: rgba(16, 185, 129, 0.12); color: #34d399;
+		padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
+	}
+	.bento-title { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 8px; }
+	.bento-desc { font-size: 14px; color: #a1a1aa; line-height: 1.6; margin: 0; }
+
+	/* ── Agent Marketplace ── */
+	.agents-section { padding: 100px 0; background: rgba(16, 185, 129, 0.02); }
+	.agents-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+	.agent-card {
+		display: flex; gap: 16px; padding: 22px; border-radius: 16px;
+		background: rgba(24, 24, 27, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);
+	}
+	.agent-avatar { font-size: 36px; }
+	.agent-content { flex: 1; }
+	.agent-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+	.agent-name { font-size: 16px; font-weight: 600; color: #fff; margin: 0; }
+	.agent-tag { background: rgba(255,255,255,0.06); color: #a1a1aa; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+	.agent-desc { font-size: 13px; color: #71717a; margin: 0 0 14px; }
+	.agent-bottom { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+	.agent-stars { color: #a1a1aa; }
+	.agent-use-btn { color: #34d399; font-weight: 600; }
+
+	/* ── Pricing ── */
+	.pricing-section { padding: 100px 0; }
+	.billing-switcher { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 48px; font-size: 14px; color: #a1a1aa; }
+	.billing-switcher span.active { color: #fff; font-weight: 600; }
+	.switch-toggle {
+		width: 44px; height: 24px; border-radius: 100px; background: rgba(255,255,255,0.1);
+		border: none; cursor: pointer; position: relative;
+	}
+	.switch-toggle.annual { background: #10b981; }
+	.switch-ball {
+		position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+		border-radius: 50%; background: #fff; transition: transform 0.2s;
+	}
+	.switch-toggle.annual .switch-ball { transform: translateX(20px); }
+	.discount-badge { background: rgba(52,211,153,0.15); color: #34d399; padding: 2px 8px; border-radius: 100px; font-size: 11px; }
+
+	.pricing-cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+	.price-card {
+		position: relative; padding: 36px 28px; border-radius: 20px;
+		background: rgba(24, 24, 27, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);
+		display: flex; flex-direction: column;
+	}
+	.price-card.popular {
+		border-color: rgba(16, 185, 129, 0.5);
+		box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
+	}
+	.popular-ribbon {
+		position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+		background: linear-gradient(135deg, #10b981, #059669); color: #fff;
+		padding: 3px 14px; border-radius: 100px; font-size: 11px; font-weight: 600;
+	}
+	.price-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+	.price-desc { font-size: 13px; color: #71717a; margin-bottom: 24px; }
+	.price-amount { margin-bottom: 28px; }
+	.price-amount .val { font-family: 'Syne', sans-serif; font-size: 38px; font-weight: 800; color: #fff; }
+	.price-amount .unit { font-size: 13px; color: #71717a; margin-left: 4px; }
+	.price-features { list-style: none; padding: 0; margin: 0 0 32px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+	.price-features li { font-size: 14px; color: #a1a1aa; }
+	.price-btn {
+		display: flex; align-items: center; justify-content: center; padding: 12px;
+		border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); color: #e4e4e7;
+		font-size: 14px; font-weight: 600; transition: all 0.2s;
+	}
+	.price-btn:hover { border-color: rgba(16,185,129,0.4); color: #34d399; }
+	.price-btn.primary { background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; }
+
+	/* ── FAQ ── */
+	.faq-section { padding: 100px 0; }
+	.faq-accordion { display: flex; flex-direction: column; gap: 10px; }
+	.faq-card { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; overflow: hidden; }
+	.faq-header-btn {
+		width: 100%; display: flex; justify-content: space-between; align-items: center;
+		padding: 20px 24px; background: none; border: none; color: #fff;
+		font-size: 16px; font-weight: 500; cursor: pointer; text-align: left;
+	}
+	.faq-body-text { padding: 0 24px 20px; color: #a1a1aa; font-size: 14px; line-height: 1.6; }
+
+	/* ── Footer ── */
+	.footer { padding: 60px 0 40px; border-top: 1px solid rgba(255, 255, 255, 0.08); background: #000; }
+	.footer-container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+	.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+	.footer-desc { font-size: 13px; color: #71717a; line-height: 1.6; margin: 12px 0 20px; }
+	.footer-social-row { display: flex; gap: 8px; }
+	.social-chip {
+		padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,0.04);
+		border: 1px solid rgba(255,255,255,0.08); color: #a1a1aa; font-size: 12px;
+	}
+	.footer-col { display: flex; flex-direction: column; gap: 10px; }
+	.footer-col-head { font-size: 12px; font-weight: 600; color: #fff; text-transform: uppercase; margin-bottom: 6px; }
+	.footer-link { font-size: 13px; color: #71717a; transition: color 0.2s; }
+	.footer-link:hover { color: #fff; }
+	.footer-bottom-bar {
+		display: flex; justify-content: space-between; font-size: 12px; color: #52525b;
+		padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	@media (max-width: 900px) {
+		.bento-grid, .pricing-cards-grid, .agents-grid { grid-template-columns: 1fr; }
+		.footer-grid { grid-template-columns: 1fr 1fr; }
+		.nav-links { display: none; }
+	}
 </style>
