@@ -167,6 +167,8 @@ from open_webui.routers import (
     users,
     utils,
 )
+from open_webui.routers import agents as agents_router
+from open_webui.routers import providers as providers_router
 from open_webui.routers.retrieval import (
     get_ef,
     get_embedding_function,
@@ -768,6 +770,10 @@ app.include_router(utils.router, prefix='/api/v1/utils', tags=['utils'])
 app.include_router(terminals.router, prefix='/api/v1/terminals', tags=['terminals'])
 app.include_router(automations.router, prefix='/api/v1/automations', tags=['automations'])
 app.include_router(calendar.router, prefix='/api/v1/calendars', tags=['calendars'])
+
+# ── Enterprise Agent OS: Agents, Skills, Providers ───────────────────────────
+app.include_router(agents_router.router, prefix='/api/v1/agents', tags=['agents'])
+app.include_router(providers_router.router, prefix='/api/v1/providers', tags=['providers'])
 
 # SCIM 2.0 API for identity management
 if ENABLE_SCIM:

@@ -137,7 +137,8 @@
 			if (res?.token) {
 				localStorage.setItem('token', res.token);
 				await user.set(await getSessionUser(res.token));
-				goto(redirectTo || '/');
+				const targetUrl = prefilledPrompt ? `/?prompt=${encodeURIComponent(prefilledPrompt)}` : (redirectTo || '/');
+				goto(targetUrl);
 			}
 		} catch (err: any) {
 			toast.error(err?.detail || 'Sign in failed. Please check your credentials.');
@@ -161,7 +162,8 @@
 			if (res?.token) {
 				localStorage.setItem('token', res.token);
 				await user.set(await getSessionUser(res.token));
-				goto(redirectTo || '/');
+				const targetUrl = prefilledPrompt ? `/?prompt=${encodeURIComponent(prefilledPrompt)}` : (redirectTo || '/');
+				goto(targetUrl);
 			}
 		} catch (err: any) {
 			toast.error(err?.detail || 'Sign up failed. Please try again.');

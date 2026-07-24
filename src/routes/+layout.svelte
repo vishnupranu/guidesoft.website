@@ -1167,18 +1167,22 @@
 						await goto(`/auth?redirect=${encodedUrl}`);
 					}
 				} else {
-					// Public routes: /landing and /auth — no redirect needed
-					const publicRoutes = ['/auth', '/landing'];
+					// Public routes: /, /auth, and /landing — stay on current public route
+					const publicRoutes = ['/', '/auth', '/landing'];
 					const isPublic = publicRoutes.some(r => $page.url.pathname === r || $page.url.pathname.startsWith(r + '/'));
 					if (!isPublic) {
-						// Unauthenticated — send to landing page
-						await goto(`/landing`);
+						// Unauthenticated user trying to access protected route -> send to /auth
+						await goto(`/auth?redirect=${encodedUrl}`);
 					}
 				}
 			}
 		} else {
-			// Redirect to /error when Backend Not Detected
-			await goto(`/error`);
+			// Backend Not Detected — allow public landing and auth pages to load without error redirect
+			const publicRoutes = ['/', '/auth', '/landing', '/error'];
+			const isPublic = publicRoutes.some(r => $page.url.pathname === r || $page.url.pathname.startsWith(r + '/'));
+			if (!isPublic) {
+				await goto(`/error`);
+			}
 		}
 
 		await tick();
