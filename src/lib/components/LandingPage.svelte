@@ -4,365 +4,337 @@
 
 	// ── State ──────────────────────────────────────────────────────
 	let prompt = '';
-	let selectedModel = 'GPT-4o';
+	let selectedModel = 'claude-sonnet-4-5';
 	let showModelDropdown = false;
 	let inputFocused = false;
-	let activeTab = 'all';
-	let billingAnnual = false;
-	let activeFaq = -1;
-	let scrollY = 0;
+	let mouseX = 0;
+	let mouseY = 0;
+	let heroRef: HTMLElement;
+	let textareaRef: HTMLTextAreaElement;
 
-	// Models available
+	// Models
 	const models = [
-		{ id: 'GPT-4o', name: 'GPT-4o', provider: 'OpenAI', icon: '⚡', color: '#10a37f' },
-		{ id: 'Claude-3.5', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', icon: '🧠', color: '#d97706' },
-		{ id: 'Gemini-1.5', name: 'Gemini 1.5 Pro', provider: 'Google', icon: '✨', color: '#2563eb' },
-		{ id: 'DeepSeek-V3', name: 'DeepSeek V3', provider: 'DeepSeek', icon: '🚀', color: '#7c3aed' },
-		{ id: 'Llama-3.3', name: 'Llama 3.3 70B', provider: 'Meta', icon: '🦙', color: '#0284c7' }
+		{ id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', color: '#10a37f' },
+		{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', provider: 'Anthropic', color: '#d97706' },
+		{ id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'Google', color: '#4285f4' },
+		{ id: 'deepseek-chat', name: 'DeepSeek V3', provider: 'DeepSeek', color: '#7c3aed' },
+		{ id: 'llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', color: '#0284c7' },
+		{ id: 'grok-3', name: 'Grok 3', provider: 'xAI', color: '#1a1a2e' }
 	];
 
-	// Starters
+	// Prompt starters
 	const starters = [
-		{ label: 'Summarize 50-page PDF report', icon: '📄', model: 'GPT-4o' },
-		{ label: 'Build a Next.js + Tailwind web app', icon: '💻', model: 'Claude 3.5 Sonnet' },
-		{ label: 'Analyze Q3 revenue trends with Python', icon: '📊', model: 'DeepSeek V3' },
-		{ label: 'Translate technical spec to Spanish', icon: '🌐', model: 'Gemini 1.5 Pro' }
+		{ label: 'Build a full-stack SaaS', icon: '⚡' },
+		{ label: 'Debug my codebase', icon: '🐛' },
+		{ label: 'Research & write a report', icon: '🔬' },
+		{ label: 'Create a marketing strategy', icon: '📈' }
 	];
 
-	// Typing animation
-	const typingSentences = [
-		"Welcome to GUIDESOFT.WEB — your personal AI workplace.",
-		"Connect GPT-4o, Claude 3.5, Gemini, Llama 3, and DeepSeek in one place.",
-		"Upload PDFs, docs, and code to chat with your knowledge base.",
-		"Run autonomous AI agents, vision tools, and local models securely."
-	];
-	let sentenceIdx = 0;
-	let charIdx = 0;
-	let isDeleting = false;
-	let typingText = '';
-	let typingTimer: ReturnType<typeof setTimeout>;
-
-	function typeEffect() {
-		const currentSentence = typingSentences[sentenceIdx];
-		if (!isDeleting) {
-			typingText = currentSentence.slice(0, charIdx + 1);
-			charIdx++;
-			if (charIdx === currentSentence.length) {
-				isDeleting = true;
-				typingTimer = setTimeout(typeEffect, 2200);
-				return;
-			}
-		} else {
-			typingText = currentSentence.slice(0, charIdx - 1);
-			charIdx--;
-			if (charIdx === 0) {
-				isDeleting = false;
-				sentenceIdx = (sentenceIdx + 1) % typingSentences.length;
-				typingTimer = setTimeout(typeEffect, 400);
-				return;
-			}
+	// Capabilities bento
+	const capabilities = [
+		{
+			title: '12 Specialized Agents',
+			desc: 'Planner, Coder, DevOps, Security, Research, Browser, and more — each with a deep system prompt and tool access.',
+			tag: 'Agents',
+			size: 'large'
+		},
+		{
+			title: '18 AI Providers',
+			desc: 'OpenAI, Anthropic, Gemini, Groq, DeepSeek, Ollama, OpenCode, OpenHands, Firecrawl, Composio and more.',
+			tag: 'Models',
+			size: 'small'
+		},
+		{
+			title: '35+ Skills',
+			desc: 'Code generation, RAG pipelines, agent orchestration, MCP integration, web scraping, CI/CD, and more.',
+			tag: 'Skills',
+			size: 'small'
+		},
+		{
+			title: 'Autonomous Browser Agent',
+			desc: 'Playwright-powered browser automation that navigates, fills forms, extracts data, and tests UI automatically.',
+			tag: 'Automation',
+			size: 'medium'
+		},
+		{
+			title: 'RAG & Knowledge Base',
+			desc: 'Upload PDFs, codebases, and docs. Get AI answers backed by your own knowledge with precise citations.',
+			tag: 'Enterprise RAG',
+			size: 'medium'
+		},
+		{
+			title: 'Built-in Code Interpreter',
+			desc: 'Execute Python safely in a WASM sandbox. Plot charts, analyze data, and export results.',
+			tag: 'WASM',
+			size: 'small'
 		}
-		typingTimer = setTimeout(typeEffect, isDeleting ? 25 : 45);
+	];
+
+	// Integrations
+	const integrations = [
+		{ name: 'OpenAI', logo: '⬛', color: '#000' },
+		{ name: 'Anthropic', logo: '🟠', color: '#d97706' },
+		{ name: 'Google', logo: '🔵', color: '#4285f4' },
+		{ name: 'Groq', logo: '⚡', color: '#f59e0b' },
+		{ name: 'Ollama', logo: '🦙', color: '#6366f1' },
+		{ name: 'Firecrawl', logo: '🔥', color: '#ef4444' },
+		{ name: 'Composio', logo: '🔧', color: '#06b6d4' },
+		{ name: 'OpenHands', logo: '🙌', color: '#8b5cf6' },
+		{ name: 'GitHub', logo: '⬤', color: '#24292e' },
+		{ name: 'Slack', logo: '💬', color: '#4a154b' },
+		{ name: 'Notion', logo: '📄', color: '#37352f' },
+		{ name: 'Linear', logo: '⧫', color: '#5e6ad2' }
+	];
+
+	// Use cases
+	const useCases = [
+		{
+			title: 'For Developers',
+			desc: 'Generate, refactor, debug, and deploy code across 30+ languages. Autonomous coding agents that write, test, and commit.',
+			cta: 'Start Coding',
+			icon: '💻'
+		},
+		{
+			title: 'For Research Teams',
+			desc: 'Web research, literature review, competitor analysis, and structured report generation powered by Firecrawl.',
+			cta: 'Start Research',
+			icon: '🔬'
+		},
+		{
+			title: 'For Enterprises',
+			desc: 'Role-based access, private deployments, audit logs, SSO, SCIM, and multi-tenant workspace support.',
+			cta: 'Contact Sales',
+			icon: '🏢'
+		}
+	];
+
+	// ── Handlers ──────────────────────────────────────────────────────
+	function handleMouseMove(e: MouseEvent) {
+		mouseX = e.clientX;
+		mouseY = e.clientY;
 	}
 
-	// Agents showcase
-	const agents = [
-		{ name: 'Senior Developer', avatar: '👨‍💻', desc: 'Writes clean, tested code in React, Python, Go & Rust', tag: 'Coding', stars: '4.9k' },
-		{ name: 'Data Analyst', avatar: '📈', desc: 'Analyzes CSVs, generates charts and SQL queries instantly', tag: 'Analytics', stars: '3.8k' },
-		{ name: 'Research Scholar', avatar: '🔬', desc: 'Performs deep web searches & summarizes academic papers', tag: 'Research', stars: '5.2k' },
-		{ name: 'Product Manager', avatar: '🚀', desc: 'Drafts PRDs, user stories, and roadmap documentation', tag: 'Productivity', stars: '4.1k' }
-	];
-
-	// Features Bento Grid
-	const bentoItems = [
-		{
-			title: 'Multi-Model Switcher',
-			desc: 'Switch seamlessly between OpenAI, Anthropic, Google, and local Ollama models in the same chat thread.',
-			icon: '🔮',
-			badge: 'All-in-One'
-		},
-		{
-			title: 'Knowledge Base (RAG)',
-			desc: 'Upload documents, codebase repos, and PDFs. Get accurate answers backed by precise citations.',
-			icon: '📚',
-			badge: 'Enterprise RAG'
-		},
-		{
-			title: 'Code Interpreter & Sandbox',
-			desc: 'Execute Python code safely in Pyodide WASM sandbox. Plot charts and export clean datasets.',
-			icon: '⚡',
-			badge: 'WASM Powered'
-		},
-		{
-			title: 'Autonomous Agents & Tools',
-			desc: 'Equip AI with web browsing, search tools, multi-agent orchestration, and custom API calls.',
-			icon: '🤖',
-			badge: 'Agentic Workflow'
-		},
-		{
-			title: 'Voice & Vision Multimodal',
-			desc: 'Speak naturally with real-time TTS/STT and upload screenshots or diagrams for vision analysis.',
-			icon: '🎙️',
-			badge: 'Real-Time Voice'
-		},
-		{
-			title: '100% Privacy & Self-Hostable',
-			desc: 'Deploy locally via Docker. Zero external data tracking — full control of your keys and data.',
-			icon: '🛡️',
-			badge: 'Open Source'
+	function autoResize() {
+		if (textareaRef) {
+			textareaRef.style.height = 'auto';
+			textareaRef.style.height = Math.min(textareaRef.scrollHeight, 200) + 'px';
 		}
-	];
+	}
 
-	// Testimonials
-	const testimonials = [
-		{ name: 'Elena Rostova', role: 'CTO, AI Scale', quote: 'GUIDESOFT replaced 4 different subscription tools for our team. The LobeHub UI combined with local model support is world-class.', avatar: 'ER' },
-		{ name: 'David Kim', role: 'Staff Engineer, DevWorks', quote: 'The speed of model switching and the rich markdown/artifacts viewer makes coding 3x faster every single day.', avatar: 'DK' },
-		{ name: 'Sarah Jenkins', role: 'Research Lead, OpenData', quote: 'Having RAG document chat with zero setup saved our lab hundreds of hours in paper synthesis.', avatar: 'SJ' }
-	];
-
-	// FAQs
-	const faqs = [
-		{ q: 'What is GUIDESOFT.WEB?', a: 'GUIDESOFT.WEB is an open-source, modern AI workspace inspired by LobeHub. It brings together top AI models, knowledge management, and AI agents into one interface.' },
-		{ q: 'Can I self-host GUIDESOFT on my own server?', a: 'Yes! GUIDESOFT is fully open source and containerized with Docker. You can deploy it on local hardware or any cloud provider in under 2 minutes.' },
-		{ q: 'How does model pricing work?', a: 'You can use your own API keys for OpenAI, Anthropic, Google, or DeepSeek — or run 100% free offline models using Ollama and local LLMs.' },
-		{ q: 'Is my data secure?', a: 'Yes. All data remains stored in your local browser storage or self-hosted database. We do not track or store your conversations.' }
-	];
-
-	function handleSend() {
+	async function handleSubmit() {
 		if (!prompt.trim()) return;
-		const encodedPrompt = encodeURIComponent(prompt.trim());
-		goto(`/auth?next=chat&prompt=${encodedPrompt}&model=${selectedModel}`);
+		const encoded = encodeURIComponent(prompt.trim());
+		await goto(`/auth?prompt=${encoded}`);
 	}
 
-	function handleStarterClick(starterPrompt: string, modelId: string) {
-		prompt = starterPrompt;
-		selectedModel = modelId;
-		handleSend();
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			handleSubmit();
+		}
 	}
 
-	function observeReveal() {
-		const io = new IntersectionObserver((entries) => {
-			entries.forEach((entry) => {
-				if (entry.isIntersecting) {
-					entry.target.classList.add('revealed');
-					io.unobserve(entry.target);
-				}
-			});
-		}, { threshold: 0.1 });
-		document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+	function handleStarterClick(label: string) {
+		prompt = label;
+		handleSubmit();
+	}
+
+	function getModelColor() {
+		return models.find((m) => m.id === selectedModel)?.color ?? '#111';
+	}
+
+	function getModelName() {
+		return models.find((m) => m.id === selectedModel)?.name ?? selectedModel;
 	}
 
 	onMount(() => {
-		typeEffect();
-		setTimeout(observeReveal, 100);
-	});
-
-	onDestroy(() => {
-		clearTimeout(typingTimer);
+		window.addEventListener('mousemove', handleMouseMove);
+		return () => window.removeEventListener('mousemove', handleMouseMove);
 	});
 </script>
 
-<svelte:window bind:scrollY />
+<!-- Main Container -->
+<div class="landing" on:mousemove={handleMouseMove} role="main">
 
-<div class="lobe-landing">
+	<!-- Subtle grid background -->
+	<div class="grid-bg" aria-hidden="true"></div>
 
-	<!-- ══════════════════════════════════════════════════
-	     HEADER / NAV
-	════════════════════════════════════════════════════ -->
-	<header class="header" class:scrolled={scrollY > 30}>
-		<div class="header-container">
-			<a href="/" class="brand-logo">
-				<div class="brand-icon">G</div>
-				<span class="brand-name">GUIDESOFT<span class="brand-accent">.WEB</span></span>
-				<span class="brand-tag">v2.5</span>
+	<!-- ── HEADER ──────────────────────────────────────────────────── -->
+	<header class="header">
+		<div class="header-inner">
+			<a href="/" class="logo">
+				<div class="logo-mark">
+					<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M14 2L26 22H2L14 2Z" fill="currentColor" />
+					</svg>
+				</div>
+				<span class="logo-text">GUIDESOFT</span>
+				<span class="logo-dot">.WEB</span>
 			</a>
 
-			<nav class="nav-links">
-				<a href="#features" class="nav-item">Features</a>
-				<a href="#models" class="nav-item">Models</a>
-				<a href="#agents" class="nav-item">Agents</a>
-				<a href="#pricing" class="nav-item">Pricing</a>
-				<a href="#faq" class="nav-item">FAQ</a>
+			<nav class="nav" aria-label="Main navigation">
+				<a href="#capabilities" class="nav-link">Capabilities</a>
+				<a href="#integrations" class="nav-link">Integrations</a>
+				<a href="#usecases" class="nav-link">Use Cases</a>
+				<a href="https://vision-thinking-excess-holding.trycloudflare.com/api/v1/agents/" target="_blank" rel="noopener" class="nav-link">API</a>
 			</nav>
 
-			<div class="nav-right">
-				<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="gh-star-btn">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-					<span>Star</span>
-					<span class="star-count">1.4k</span>
-				</a>
-				<a href="/auth" class="btn-secondary">Sign In</a>
-				<a href="/auth?mode=signup" class="btn-gradient">Get Started</a>
+			<div class="header-actions">
+				<a href="/auth" class="btn-ghost">Sign In</a>
+				<a href="/auth?signup=true" class="btn-primary">Get Started</a>
 			</div>
 		</div>
 	</header>
 
-	<!-- ══════════════════════════════════════════════════
-	     HERO SECTION (LOBEHUB CHAT INTERFACE)
-	════════════════════════════════════════════════════ -->
-	<section class="hero-section">
-		<div class="hero-background-gradient"></div>
-		<div class="hero-grid-overlay"></div>
+	<!-- ── HERO ──────────────────────────────────────────────────────── -->
+	<section class="hero" bind:this={heroRef} aria-label="Hero section">
 
-		<div class="hero-container">
-			<!-- Announcement Badge -->
-			<div class="hero-badge">
-				<span class="badge-sparkle">✦</span>
-				<span>Introducing GUIDESOFT.WEB 2.5 with DeepSeek V3 &amp; Ant Design X</span>
-				<span class="badge-arrow">→</span>
-			</div>
+		<!-- Eyebrow -->
+		<div class="eyebrow">
+			<span class="eyebrow-dot"></span>
+			<span>Enterprise AI Agent Operating System</span>
+		</div>
 
-			<!-- Title & Typewriter -->
-			<h1 class="hero-title">
-				Shape the Future of Work<br />
-				<span class="gradient-text">with GUIDESOFT AI</span>
-			</h1>
+		<!-- Main Headline — Antigravity/Codex style massive typography -->
+		<h1 class="hero-headline">
+			Experience liftoff<br />with the next-gen<br />
+			<span class="headline-accent">agent platform</span>
+		</h1>
 
-			<!-- Typewriter Container -->
-			<div class="typewriter-box">
-				<span class="typing-content">{typingText}</span><span class="type-cursor">|</span>
-			</div>
+		<p class="hero-sub">
+			Orchestrate 12 specialized AI agents across 18 model providers.<br />
+			One workspace for code, research, automation, and enterprise AI.
+		</p>
 
-			<!-- LobeHub-Style Chat Input Container -->
-			<div class="lobe-input-card" class:focused={inputFocused}>
-				<!-- Input Top Bar (Model Selector & Controls) -->
-				<div class="input-header">
-					<div class="model-picker-wrap">
-						<button
-							class="model-picker-trigger"
-							on:click={() => (showModelDropdown = !showModelDropdown)}
-						>
-							<span class="model-picker-icon">{models.find(m => m.id === selectedModel)?.icon}</span>
-							<span class="model-picker-name">{models.find(m => m.id === selectedModel)?.name}</span>
-							<span class="model-picker-badge">{models.find(m => m.id === selectedModel)?.provider}</span>
-							<span class="dropdown-arrow">▾</span>
-						</button>
+		<!-- Prompt Input Box -->
+		<div class="prompt-container" class:focused={inputFocused} id="hero-input-container">
 
-						{#if showModelDropdown}
-							<div class="model-dropdown-menu">
-								<div class="menu-title">Select Active Model</div>
-								{#each models as m}
-									<button
-										class="dropdown-item"
-										class:selected={selectedModel === m.id}
-										on:click={() => { selectedModel = m.id; showModelDropdown = false; }}
-									>
-										<span class="m-icon">{m.icon}</span>
-										<div class="m-info">
-											<div class="m-name">{m.name}</div>
-											<div class="m-provider">{m.provider}</div>
-										</div>
-										{#if selectedModel === m.id}<span class="m-check">✓</span>{/if}
-									</button>
-								{/each}
-							</div>
-						{/if}
+			<!-- Model Selector -->
+			<div class="model-selector-wrap">
+				<button
+					class="model-selector"
+					style="--model-color: {getModelColor()}"
+					on:click={() => (showModelDropdown = !showModelDropdown)}
+					aria-label="Select AI model"
+					aria-expanded={showModelDropdown}
+				>
+					<span class="model-dot" style="background:{getModelColor()}"></span>
+					<span class="model-name">{getModelName()}</span>
+					<svg class="model-caret" class:open={showModelDropdown} width="12" height="12" viewBox="0 0 12 12" fill="none">
+						<path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</button>
+
+				{#if showModelDropdown}
+					<div class="model-dropdown" role="listbox" aria-label="AI models">
+						{#each models as model}
+							<button
+								class="model-option"
+								class:active={selectedModel === model.id}
+								role="option"
+								aria-selected={selectedModel === model.id}
+								on:click={() => { selectedModel = model.id; showModelDropdown = false; }}
+							>
+								<span class="option-dot" style="background:{model.color}"></span>
+								<span class="option-info">
+									<span class="option-name">{model.name}</span>
+									<span class="option-provider">{model.provider}</span>
+								</span>
+								{#if selectedModel === model.id}
+									<svg class="option-check" width="14" height="14" viewBox="0 0 14 14" fill="none">
+										<path d="M2 7l3.5 3.5L12 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								{/if}
+							</button>
+						{/each}
 					</div>
-
-					<div class="input-actions-top">
-						<button class="icon-tool-btn" title="Agent Mode">🤖 <span class="tool-label">Agent Mode</span></button>
-						<button class="icon-tool-btn" title="Attach Document/PDF">📎 <span class="tool-label">Attach File</span></button>
-					</div>
-				</div>
-
-				<!-- Main Input Area -->
-				<div class="input-body">
-					<textarea
-						bind:value={prompt}
-						on:focus={() => (inputFocused = true)}
-						on:blur={() => (inputFocused = false)}
-						on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
-						placeholder="Ask GUIDESOFT anything, generate code, or upload documents…"
-						class="lobe-textarea"
-						rows="3"
-					></textarea>
-				</div>
-
-				<!-- Input Footer & Send Button -->
-				<div class="input-footer">
-					<div class="input-footer-left">
-						<span class="privacy-badge">🔒 100% Private &amp; Encrypted</span>
-						<span class="shortcut-hint">Press <strong>Enter ↵</strong> to send</span>
-					</div>
-
-					<button class="send-btn" on:click={handleSend} disabled={!prompt.trim()}>
-						<span>Send Message</span>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-					</button>
-				</div>
+				{/if}
 			</div>
 
-			<!-- Quick Starter Prompts -->
-			<div class="starters-row">
-				<span class="starters-label">Try asking:</span>
-				{#each starters as s}
-					<button class="starter-chip" on:click={() => handleStarterClick(s.label, s.model)}>
-						<span class="starter-icon">{s.icon}</span>
-						<span class="starter-text">{s.label}</span>
-					</button>
-				{/each}
+			<div class="input-area">
+				<textarea
+					bind:this={textareaRef}
+					bind:value={prompt}
+					on:focus={() => (inputFocused = true)}
+					on:blur={() => (inputFocused = false)}
+					on:input={autoResize}
+					on:keydown={handleKeydown}
+					placeholder="Ask anything, build anything, research anything..."
+					rows="1"
+					id="hero-prompt-input"
+					aria-label="Enter your prompt"
+				></textarea>
 			</div>
 
-			<!-- Platform Stats -->
-			<div class="stats-strip">
-				<div class="stat-box"><strong>50,000+</strong><span>Active Developers</span></div>
-				<div class="stat-sep"></div>
-				<div class="stat-box"><strong>12+</strong><span>LLM Providers</span></div>
-				<div class="stat-sep"></div>
-				<div class="stat-box"><strong>99.9%</strong><span>Uptime SLA</span></div>
-				<div class="stat-sep"></div>
-				<div class="stat-box"><strong>100%</strong><span>Open Source</span></div>
+			<button
+				class="send-btn"
+				class:active={prompt.trim().length > 0}
+				on:click={handleSubmit}
+				aria-label="Send prompt"
+			>
+				<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+					<path d="M9 15V3M9 3L4 8M9 3l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			</button>
+		</div>
+
+		<!-- Starter Chips -->
+		<div class="starters" aria-label="Prompt suggestions">
+			{#each starters as starter}
+				<button class="starter-chip" on:click={() => handleStarterClick(starter.label)}>
+					<span>{starter.icon}</span>
+					<span>{starter.label}</span>
+				</button>
+			{/each}
+		</div>
+
+		<!-- CTA Buttons — Antigravity style (dark pill + ghost) -->
+		<div class="hero-ctas">
+			<a href="/auth?signup=true" class="cta-primary">
+				<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" fill="currentColor" opacity="0.2"/><path d="M8 4v8M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+				Get started free
+			</a>
+			<a href="#capabilities" class="cta-ghost">Explore capabilities</a>
+		</div>
+
+		<!-- Stats Row -->
+		<div class="stats-row" aria-label="Platform statistics">
+			<div class="stat">
+				<span class="stat-num">18</span>
+				<span class="stat-label">AI Providers</span>
+			</div>
+			<div class="stat-divider" aria-hidden="true"></div>
+			<div class="stat">
+				<span class="stat-num">12</span>
+				<span class="stat-label">Specialized Agents</span>
+			</div>
+			<div class="stat-divider" aria-hidden="true"></div>
+			<div class="stat">
+				<span class="stat-num">35+</span>
+				<span class="stat-label">Skill Definitions</span>
+			</div>
+			<div class="stat-divider" aria-hidden="true"></div>
+			<div class="stat">
+				<span class="stat-num">32</span>
+				<span class="stat-label">Firecrawl Skills</span>
 			</div>
 		</div>
 	</section>
 
-	<!-- ══════════════════════════════════════════════════
-	     SUPPORTED MODELS MATRIX
-	════════════════════════════════════════════════════ -->
-	<section class="models-section reveal" id="models">
-		<div class="section-container">
-			<div class="section-badge center">MODEL MATRIX</div>
-			<h2 class="section-title center">One Interface, All World-Class AI Models</h2>
-			<p class="section-subtitle center">Connect your API keys or run completely offline with Ollama.</p>
-
-			<div class="models-grid">
-				{#each [
-					{ name: 'OpenAI GPT-4o', desc: 'Flagship multimodal model for complex reasoning and vision.', badge: 'GPT-4o', color: '#10a37f' },
-					{ name: 'Anthropic Claude 3.5', desc: 'Industry-leading coding, instruction following, and analysis.', badge: 'Claude 3.5', color: '#d97706' },
-					{ name: 'Google Gemini 1.5 Pro', desc: '1M token context window for massive codebase analysis.', badge: 'Gemini Pro', color: '#2563eb' },
-					{ name: 'DeepSeek V3 / R1', desc: 'Open-weights reasoning powerhouse with high cost efficiency.', badge: 'DeepSeek', color: '#7c3aed' },
-					{ name: 'Meta Llama 3.3 70B', desc: 'State-of-the-art open source model for self-hosted privacy.', badge: 'Llama 3.3', color: '#0284c7' },
-					{ name: 'Ollama & Local LLMs', desc: 'Run Llama, Mistral, and Qwen offline on your local GPU.', badge: 'Local GPU', color: '#059669' }
-				] as m}
-					<div class="model-card" style="--accent: {m.color}">
-						<div class="model-card-top">
-							<span class="m-badge" style="background: {m.color}20; color: {m.color}; border: 1px solid {m.color}40">{m.badge}</span>
-							<span class="m-dot" style="background: {m.color}"></span>
-						</div>
-						<h3 class="m-title">{m.name}</h3>
-						<p class="m-desc">{m.desc}</p>
-					</div>
-				{/each}
+	<!-- ── CAPABILITIES BENTO ──────────────────────────────────────── -->
+	<section class="section" id="capabilities" aria-labelledby="cap-heading">
+		<div class="section-inner">
+			<div class="section-header">
+				<p class="section-label">Capabilities</p>
+				<h2 class="section-headline" id="cap-heading">
+					Everything you need<br />to build with AI
+				</h2>
 			</div>
-		</div>
-	</section>
-
-	<!-- ══════════════════════════════════════════════════
-	     BENTO GRID FEATURES
-	════════════════════════════════════════════════════ -->
-	<section class="bento-section reveal" id="features">
-		<div class="section-container">
-			<div class="section-badge center">PLATFORM FEATURES</div>
-			<h2 class="section-title center">Engineered for Maximum AI Productivity</h2>
-			<p class="section-subtitle center">Built with modern UI standards, smooth animations, and clean ergonomics.</p>
 
 			<div class="bento-grid">
-				{#each bentoItems as item, i}
-					<div class="bento-card" style="animation-delay: {i * 70}ms">
-						<div class="bento-header">
-							<span class="bento-icon">{item.icon}</span>
-							<span class="bento-tag">{item.badge}</span>
-						</div>
+				{#each capabilities as item}
+					<div class="bento-card bento-{item.size}">
+						<span class="bento-tag">{item.tag}</span>
 						<h3 class="bento-title">{item.title}</h3>
 						<p class="bento-desc">{item.desc}</p>
 					</div>
@@ -371,29 +343,38 @@
 		</div>
 	</section>
 
-	<!-- ══════════════════════════════════════════════════
-	     AGENT MARKETPLACE / DISCOVER
-	════════════════════════════════════════════════════ -->
-	<section class="agents-section reveal" id="agents">
-		<div class="section-container">
-			<div class="section-badge center">AI AGENT MARKETPLACE</div>
-			<h2 class="section-title center">Pre-Built AI Agents for Every Role</h2>
-			<p class="section-subtitle center">Deploy specialized assistants with tailored prompt instructions and toolsets.</p>
+	<!-- ── AGENTS SHOWCASE ────────────────────────────────────────── -->
+	<section class="section section-dark" aria-labelledby="agents-heading">
+		<div class="section-inner">
+			<div class="section-header section-header-light">
+				<p class="section-label-light">Agent Fleet</p>
+				<h2 class="section-headline-light" id="agents-heading">
+					Specialized agents for<br />every task
+				</h2>
+				<p class="section-sub-light">12 expert agents, each with deep system prompts, curated tool access, and domain-specific skills.</p>
+			</div>
 
 			<div class="agents-grid">
-				{#each agents as agent}
+				{#each [
+					{ id: 'planner', name: 'Planner', emoji: '🗓️', desc: 'Decomposes goals into sprint plans, task trees & ADRs', domain: 'Orchestration' },
+					{ id: 'coder', name: 'Coder', emoji: '💻', desc: 'Production-grade code in 30+ languages with full test coverage', domain: 'Engineering' },
+					{ id: 'frontend', name: 'Frontend', emoji: '🎨', desc: 'Premium UI rivaling Linear, Stripe & Notion with WCAG compliance', domain: 'Engineering' },
+					{ id: 'backend', name: 'Backend', emoji: '⚙️', desc: 'FastAPI, GraphQL, database schemas, auth & async queues', domain: 'Engineering' },
+					{ id: 'devops', name: 'DevOps', emoji: '🚀', desc: 'Docker, Kubernetes, Terraform IaC, GitHub Actions CI/CD', domain: 'Infrastructure' },
+					{ id: 'security', name: 'Security', emoji: '🔒', desc: 'OWASP Top 10 audits, CVE scanning, threat modeling', domain: 'Security' },
+					{ id: 'testing', name: 'Testing', emoji: '🧪', desc: 'Unit, integration & Playwright E2E with >90% coverage', domain: 'Quality' },
+					{ id: 'research', name: 'Research', emoji: '🔬', desc: 'Deep web research, Firecrawl scraping, synthesis & citations', domain: 'Intelligence' },
+					{ id: 'browser', name: 'Browser', emoji: '🌐', desc: 'Autonomous Playwright navigation, form filling & extraction', domain: 'Automation' },
+					{ id: 'docs', name: 'Docs', emoji: '📚', desc: 'OpenAPI specs, README generation, Mermaid diagrams', domain: 'Documentation' },
+					{ id: 'supervisor', name: 'Supervisor', emoji: '👁️', desc: 'Multi-agent orchestration with retry logic & progress tracking', domain: 'Orchestration' },
+					{ id: 'reviewer', name: 'Reviewer', emoji: '👀', desc: 'Code quality gates, PR reviews & architectural feedback', domain: 'Quality' }
+				] as agent}
 					<div class="agent-card">
-						<div class="agent-avatar">{agent.avatar}</div>
-						<div class="agent-content">
-							<div class="agent-top">
-								<h3 class="agent-name">{agent.name}</h3>
-								<span class="agent-tag">{agent.tag}</span>
-							</div>
+						<div class="agent-emoji">{agent.emoji}</div>
+						<div class="agent-info">
+							<span class="agent-domain">{agent.domain}</span>
+							<h3 class="agent-name">{agent.name} Agent</h3>
 							<p class="agent-desc">{agent.desc}</p>
-							<div class="agent-bottom">
-								<span class="agent-stars">⭐ {agent.stars} uses</span>
-								<a href="/auth?mode=signup" class="agent-use-btn">Use Agent →</a>
-							</div>
 						</div>
 					</div>
 				{/each}
@@ -401,559 +382,1050 @@
 		</div>
 	</section>
 
-	<!-- ══════════════════════════════════════════════════
-	     PRICING SECTION
-	════════════════════════════════════════════════════ -->
-	<section class="pricing-section reveal" id="pricing">
-		<div class="section-container">
-			<div class="section-badge center">PRICING</div>
-			<h2 class="section-title center">Transparent Pricing for Everyone</h2>
-
-			<div class="billing-switcher">
-				<span class:active={!billingAnnual}>Monthly</span>
-				<button class="switch-toggle" class:annual={billingAnnual} on:click={() => (billingAnnual = !billingAnnual)}>
-					<span class="switch-ball"></span>
-				</button>
-				<span class:active={billingAnnual}>Annual <span class="discount-badge">Save 30%</span></span>
+	<!-- ── INTEGRATIONS ────────────────────────────────────────────── -->
+	<section class="section" id="integrations" aria-labelledby="int-heading">
+		<div class="section-inner">
+			<div class="section-header">
+				<p class="section-label">Integrations</p>
+				<h2 class="section-headline" id="int-heading">
+					Connect everything<br />you already use
+				</h2>
+				<p class="section-sub">18 AI model providers, 250+ business tool integrations via Composio, plus Firecrawl and OpenHands.</p>
 			</div>
 
-			<div class="pricing-cards-grid">
-				<!-- Community / Free -->
-				<div class="price-card">
-					<div class="price-title">Community</div>
-					<div class="price-desc">Self-Hosted &amp; Open Source</div>
-					<div class="price-amount"><span class="val">$0</span><span class="unit">/forever</span></div>
-					<ul class="price-features">
-						<li>✓ 100% Open Source</li>
-						<li>✓ Unlimited Local Ollama Chat</li>
-						<li>✓ Self-host via Docker</li>
-						<li>✓ Knowledge RAG Support</li>
-						<li>✓ Community Discord</li>
-					</ul>
-					<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="price-btn">Deploy Yourself</a>
-				</div>
-
-				<!-- Pro -->
-				<div class="price-card popular">
-					<div class="popular-ribbon">Most Popular</div>
-					<div class="price-title">Pro Cloud</div>
-					<div class="price-desc">For Individuals &amp; Power Users</div>
-					<div class="price-amount">
-						<span class="val">{billingAnnual ? '$14' : '$20'}</span>
-						<span class="unit">/month</span>
+			<div class="integrations-grid">
+				{#each integrations as int}
+					<div class="integration-card">
+						<span class="int-icon">{int.logo}</span>
+						<span class="int-name">{int.name}</span>
 					</div>
-					<ul class="price-features">
-						<li>✓ Unlimited Hosted Model Access</li>
-						<li>✓ GPT-4o, Claude 3.5 &amp; Gemini Pro</li>
-						<li>✓ Unlimited Document Knowledge Bases</li>
-						<li>✓ Pyodide Code Interpreter</li>
-						<li>✓ Priority Fast Response SLA</li>
-					</ul>
-					<a href="/auth?mode=signup&plan=pro" class="price-btn primary">Start Free Trial</a>
-				</div>
+				{/each}
+			</div>
 
-				<!-- Enterprise -->
-				<div class="price-card">
-					<div class="price-title">Enterprise</div>
-					<div class="price-desc">For Organizations at Scale</div>
-					<div class="price-amount"><span class="val">Custom</span></div>
-					<ul class="price-features">
-						<li>✓ Private Cloud / On-Premise VPC</li>
-						<li>✓ Single Sign-On (SSO / SAML)</li>
-						<li>✓ Custom Agent Development</li>
-						<li>✓ SOC 2 &amp; HIPAA Compliance</li>
-						<li>✓ 24/7 Dedicated Support</li>
-					</ul>
-					<a href="/auth?mode=signup&plan=enterprise" class="price-btn">Contact Sales</a>
-				</div>
+			<div class="integration-note">
+				<span>+ OpenCode AI, OpenHands, Mistral, Together AI, Perplexity, Cohere, xAI Grok, Azure OpenAI and more</span>
 			</div>
 		</div>
 	</section>
 
-	<!-- ══════════════════════════════════════════════════
-	     FAQ SECTION
-	════════════════════════════════════════════════════ -->
-	<section class="faq-section reveal" id="faq">
-		<div class="section-container" style="max-width: 800px">
-			<div class="section-badge center">FAQ</div>
-			<h2 class="section-title center">Frequently Asked Questions</h2>
+	<!-- ── USE CASES ──────────────────────────────────────────────── -->
+	<section class="section" id="usecases" aria-labelledby="uc-heading">
+		<div class="section-inner">
+			<div class="section-header">
+				<p class="section-label">Use Cases</p>
+				<h2 class="section-headline" id="uc-heading">Built for every team</h2>
+			</div>
 
-			<div class="faq-accordion">
-				{#each faqs as item, i}
-					<div class="faq-card" class:open={activeFaq === i}>
-						<button class="faq-header-btn" on:click={() => (activeFaq = activeFaq === i ? -1 : i)}>
-							<span class="faq-question-text">{item.q}</span>
-							<span class="faq-icon">{activeFaq === i ? '−' : '+'}</span>
+			<div class="use-cases-grid">
+				{#each useCases as uc}
+					<div class="uc-card">
+						<span class="uc-icon">{uc.icon}</span>
+						<h3 class="uc-title">{uc.title}</h3>
+						<p class="uc-desc">{uc.desc}</p>
+						<button class="uc-cta" on:click={() => goto('/auth?signup=true')}>
+							{uc.cta}
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+								<path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
 						</button>
-						{#if activeFaq === i}
-							<div class="faq-body-text">{item.a}</div>
-						{/if}
 					</div>
 				{/each}
 			</div>
 		</div>
 	</section>
 
-	<!-- ══════════════════════════════════════════════════
-	     FOOTER
-	════════════════════════════════════════════════════ -->
-	<footer class="footer">
-		<div class="footer-container">
-			<div class="footer-grid">
-				<div class="footer-brand-col">
-					<div class="brand-logo">
-						<div class="brand-icon">G</div>
-						<span class="brand-name">GUIDESOFT<span class="brand-accent">.WEB</span></span>
-					</div>
-					<p class="footer-desc">
-						The Open-Source AI Workspace.<br />
-						Empowering developers, teams, and enterprises with world-class AI models.
-					</p>
-					<div class="footer-social-row">
-						<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="social-chip">GitHub</a>
-						<span class="social-chip">Discord</span>
-						<span class="social-chip">Twitter / X</span>
-					</div>
-				</div>
-
-				<div class="footer-col">
-					<div class="footer-col-head">Product</div>
-					<a href="#features" class="footer-link">Features</a>
-					<a href="#models" class="footer-link">Models</a>
-					<a href="#agents" class="footer-link">Agent Market</a>
-					<a href="#pricing" class="footer-link">Pricing</a>
-				</div>
-
-				<div class="footer-col">
-					<div class="footer-col-head">Developers</div>
-					<a href="/auth" class="footer-link">API Docs</a>
-					<a href="https://github.com/vishnupranu/guidesoft.website" target="_blank" class="footer-link">GitHub Repo</a>
-					<a href="#" class="footer-link">Self-Host Guide</a>
-					<a href="#" class="footer-link">Docker Hub</a>
-				</div>
-
-				<div class="footer-col">
-					<div class="footer-col-head">Legal</div>
-					<a href="#" class="footer-link">Privacy Policy</a>
-					<a href="#" class="footer-link">Terms of Service</a>
-					<a href="#" class="footer-link">Security Policy</a>
-				</div>
-			</div>
-
-			<div class="footer-bottom-bar">
-				<span>© 2024 GUIDESOFT.WEB. All rights reserved.</span>
-				<span>Powered by Ant Design X &amp; SvelteKit</span>
+	<!-- ── FINAL CTA ──────────────────────────────────────────────── -->
+	<section class="section section-cta" aria-labelledby="cta-heading">
+		<div class="section-inner cta-inner">
+			<h2 class="cta-headline" id="cta-heading">
+				Ready for liftoff?
+			</h2>
+			<p class="cta-sub">
+				Join developers and teams using GUIDESOFT.WEB to<br />
+				orchestrate AI agents, build products, and automate workflows.
+			</p>
+			<div class="cta-actions">
+				<a href="/auth?signup=true" class="cta-primary large">Start for free</a>
+				<a href="/auth" class="cta-ghost large">Sign in</a>
 			</div>
 		</div>
-	</footer>
+	</section>
 
+	<!-- ── FOOTER ─────────────────────────────────────────────────── -->
+	<footer class="footer" role="contentinfo">
+		<div class="footer-inner">
+			<div class="footer-logo">
+				<div class="logo-mark small">
+					<svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+						<path d="M14 2L26 22H2L14 2Z" fill="currentColor" />
+					</svg>
+				</div>
+				<span>GUIDESOFT.WEB</span>
+			</div>
+			<div class="footer-links">
+				<a href="https://vision-thinking-excess-holding.trycloudflare.com/docs" target="_blank" rel="noopener">API Docs</a>
+				<a href="https://github.com/happies2013-design/open-webui" target="_blank" rel="noopener">GitHub</a>
+				<a href="/auth" class="footer-link">Sign In</a>
+			</div>
+			<p class="footer-copy">© 2026 GUIDESOFT.WEB · Enterprise AI Agent OS</p>
+		</div>
+	</footer>
 </div>
 
+<!-- Click outside to close dropdown -->
+{#if showModelDropdown}
+	<div class="overlay" on:click={() => (showModelDropdown = false)} role="button" tabindex="-1" aria-label="Close model dropdown" on:keydown={() => {}}></div>
+{/if}
+
 <style>
+	/* ── RESET & BASE ────────────────────────────────────────────────── */
 	:global(body) {
-		margin: 0; padding: 0;
-		background: #09090b;
-		color: #f4f4f5;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		margin: 0;
+		padding: 0;
+		background: #fff;
+		color: #0a0a0a;
+		font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	.landing {
+		min-height: 100vh;
+		background: #ffffff;
+		position: relative;
 		overflow-x: hidden;
 	}
-	:global(*) { box-sizing: border-box; }
-	:global(a) { text-decoration: none; }
 
-	.lobe-landing { width: 100%; position: relative; }
+	/* Subtle dot grid background — like Codex / Antigravity */
+	.grid-bg {
+		position: fixed;
+		inset: 0;
+		background-image: radial-gradient(circle, #e4e4e7 1px, transparent 1px);
+		background-size: 28px 28px;
+		opacity: 0.45;
+		pointer-events: none;
+		z-index: 0;
+	}
 
-	/* ── Header ── */
+	/* ── HEADER ──────────────────────────────────────────────────────── */
 	.header {
-		position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-		padding: 16px 32px;
-		transition: background 0.3s, backdrop-filter 0.3s, border-bottom 0.3s;
-	}
-	.header.scrolled {
-		background: rgba(9, 9, 11, 0.85);
-		backdrop-filter: blur(16px);
-		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-	}
-	.header-container {
-		max-width: 1240px; margin: 0 auto;
-		display: flex; align-items: center; justify-content: space-between;
-	}
-	.brand-logo {
-		display: flex; align-items: center; gap: 10px;
-		color: #fff; font-size: 16px; font-weight: 700;
-	}
-	.brand-icon {
-		width: 32px; height: 32px; border-radius: 8px;
-		background: linear-gradient(135deg, #10b981, #059669);
-		display: flex; align-items: center; justify-content: center;
-		color: #fff; font-weight: 800; font-size: 16px;
-	}
-	.brand-name { font-family: 'Syne', sans-serif; }
-	.brand-accent { color: #10b981; }
-	.brand-tag {
-		background: rgba(16, 185, 129, 0.15); color: #34d399;
-		padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;
-	}
-
-	.nav-links { display: flex; gap: 8px; }
-	.nav-item {
-		color: #a1a1aa; padding: 6px 14px; border-radius: 6px;
-		font-size: 14px; font-weight: 500; transition: color 0.2s;
-	}
-	.nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
-
-	.nav-right { display: flex; align-items: center; gap: 10px; }
-	.gh-star-btn {
-		display: inline-flex; align-items: center; gap: 6px;
-		padding: 7px 12px; border-radius: 8px;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		color: #e4e4e7; font-size: 13px; font-weight: 500;
-		transition: border-color 0.2s;
-	}
-	.gh-star-btn:hover { border-color: rgba(255, 255, 255, 0.25); color: #fff; }
-	.star-count {
-		background: rgba(255, 255, 255, 0.1); padding: 1px 6px;
-		border-radius: 4px; font-size: 11px; color: #a1a1aa;
-	}
-
-	.btn-secondary {
-		padding: 8px 16px; border-radius: 8px; color: #e4e4e7;
-		font-size: 14px; font-weight: 500; transition: color 0.2s;
-	}
-	.btn-secondary:hover { color: #fff; }
-	.btn-gradient {
-		padding: 9px 18px; border-radius: 8px;
-		background: linear-gradient(135deg, #10b981, #059669);
-		color: #fff; font-size: 14px; font-weight: 600;
-		transition: opacity 0.2s, transform 0.2s;
-	}
-	.btn-gradient:hover { opacity: 0.92; transform: translateY(-1px); }
-
-	/* ── Hero Section ── */
-	.hero-section {
-		position: relative; min-height: 100vh;
-		padding: 140px 24px 80px;
-		display: flex; align-items: center; justify-content: center;
-		overflow: hidden;
-	}
-	.hero-background-gradient {
-		position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
-		width: 900px; height: 500px; border-radius: 50%;
-		background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(37, 99, 235, 0.08) 50%, transparent 80%);
-		filter: blur(80px); pointer-events: none;
-	}
-	.hero-grid-overlay {
-		position: absolute; inset: 0; pointer-events: none;
-		background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-		                  linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-		background-size: 40px 40px;
-		mask-image: radial-gradient(circle at 50% 30%, black 30%, transparent 75%);
-	}
-
-	.hero-container {
-		position: relative; z-index: 10;
-		max-width: 880px; margin: 0 auto; text-align: center;
-	}
-
-	.hero-badge {
-		display: inline-flex; align-items: center; gap: 8px;
-		padding: 6px 16px; border-radius: 100px;
-		background: rgba(16, 185, 129, 0.1);
-		border: 1px solid rgba(16, 185, 129, 0.25);
-		color: #34d399; font-size: 13px; font-weight: 500;
-		margin-bottom: 24px;
-	}
-
-	.hero-title {
-		font-family: 'Syne', sans-serif;
-		font-size: clamp(38px, 6vw, 68px);
-		font-weight: 800; line-height: 1.1; color: #fff;
-		margin: 0 0 20px;
-	}
-	.gradient-text {
-		background: linear-gradient(135deg, #34d399 0%, #60a5fa 50%, #a78bfa 100%);
-		-webkit-background-clip: text; -webkit-text-fill-color: transparent;
-	}
-
-	.typewriter-box {
-		font-size: 18px; color: #a1a1aa; min-height: 28px;
-		margin-bottom: 36px;
-	}
-	.typing-content { color: #34d399; font-weight: 500; }
-	.type-cursor { color: #10b981; animation: blink 1s infinite; }
-	@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
-
-	/* ── LobeHub Style Input Card ── */
-	.lobe-input-card {
-		background: rgba(24, 24, 27, 0.75);
-		border: 1.5px solid rgba(255, 255, 255, 0.12);
-		border-radius: 20px;
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 100;
+		background: rgba(255, 255, 255, 0.88);
 		backdrop-filter: blur(20px);
-		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 30px rgba(16, 185, 129, 0.08);
-		padding: 14px 18px;
-		text-align: left; transition: border-color 0.2s, box-shadow 0.2s;
-	}
-	.lobe-input-card.focused {
-		border-color: rgba(16, 185, 129, 0.6);
-		box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12), 0 20px 60px rgba(0, 0, 0, 0.5);
+		-webkit-backdrop-filter: blur(20px);
+		border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 	}
 
-	.input-header {
-		display: flex; align-items: center; justify-content: space-between;
-		margin-bottom: 10px;
-	}
-	.model-picker-wrap { position: relative; }
-	.model-picker-trigger {
-		display: flex; align-items: center; gap: 8px;
-		padding: 6px 12px; border-radius: 8px;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		color: #fff; font-size: 13px; font-weight: 500;
-		cursor: pointer; transition: background 0.2s;
-	}
-	.model-picker-trigger:hover { background: rgba(255, 255, 255, 0.1); }
-	.model-picker-badge {
-		background: rgba(16, 185, 129, 0.2); color: #34d399;
-		padding: 2px 6px; border-radius: 4px; font-size: 11px;
+	.header-inner {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 24px;
+		height: 56px;
+		display: flex;
+		align-items: center;
+		gap: 32px;
 	}
 
-	.model-dropdown-menu {
-		position: absolute; top: 110%; left: 0; z-index: 50;
-		width: 260px; background: #18181b;
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		border-radius: 12px; padding: 8px;
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+	.logo {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		text-decoration: none;
+		color: #0a0a0a;
+		font-size: 15px;
+		font-weight: 700;
+		letter-spacing: -0.01em;
+		flex-shrink: 0;
 	}
-	.menu-title { font-size: 11px; color: #71717a; padding: 4px 8px; text-transform: uppercase; }
-	.dropdown-item {
-		width: 100%; display: flex; align-items: center; gap: 10px;
-		padding: 8px 10px; border-radius: 6px; background: none;
-		border: none; color: #e4e4e7; text-align: left;
-		cursor: pointer; transition: background 0.2s;
-	}
-	.dropdown-item:hover, .dropdown-item.selected { background: rgba(255, 255, 255, 0.08); }
-	.m-name { font-size: 13px; font-weight: 500; color: #fff; }
-	.m-provider { font-size: 11px; color: #71717a; }
 
-	.input-actions-top { display: flex; gap: 6px; }
-	.icon-tool-btn {
-		display: flex; align-items: center; gap: 5px;
-		padding: 5px 10px; border-radius: 6px;
-		background: rgba(255, 255, 255, 0.04);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		color: #a1a1aa; font-size: 12px; cursor: pointer;
+	.logo-mark {
+		display: flex;
+		align-items: center;
+		color: #0a0a0a;
 	}
-	.icon-tool-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
 
-	.input-body { margin-bottom: 10px; }
-	.lobe-textarea {
-		width: 100%; background: none; border: none; outline: none;
-		color: #fff; font-size: 15px; font-family: inherit;
-		resize: none; line-height: 1.5;
+	.logo-mark.small {
+		color: #666;
 	}
-	.lobe-textarea::placeholder { color: #71717a; }
 
-	.input-footer {
-		display: flex; align-items: center; justify-content: space-between;
-		padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+	.logo-dot {
+		color: #888;
+		font-weight: 500;
 	}
-	.input-footer-left { font-size: 12px; color: #71717a; display: flex; gap: 16px; }
-	.privacy-badge { color: #10b981; }
+
+	.nav {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		flex: 1;
+	}
+
+	.nav-link {
+		padding: 6px 12px;
+		font-size: 14px;
+		color: #555;
+		text-decoration: none;
+		border-radius: 8px;
+		transition: all 0.15s;
+		font-weight: 500;
+	}
+
+	.nav-link:hover {
+		color: #0a0a0a;
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-shrink: 0;
+	}
+
+	.btn-ghost {
+		padding: 7px 16px;
+		font-size: 14px;
+		color: #444;
+		text-decoration: none;
+		border-radius: 9px;
+		transition: all 0.15s;
+		font-weight: 500;
+	}
+
+	.btn-ghost:hover {
+		color: #0a0a0a;
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	.btn-primary {
+		padding: 7px 18px;
+		font-size: 14px;
+		font-weight: 600;
+		color: #fff;
+		background: #0a0a0a;
+		border-radius: 9px;
+		text-decoration: none;
+		transition: all 0.15s;
+		letter-spacing: -0.01em;
+	}
+
+	.btn-primary:hover {
+		background: #222;
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+	}
+
+	/* ── HERO ─────────────────────────────────────────────────────────── */
+	.hero {
+		position: relative;
+		z-index: 1;
+		padding-top: 140px;
+		padding-bottom: 100px;
+		text-align: center;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0;
+		max-width: 900px;
+		margin: 0 auto;
+		padding-left: 24px;
+		padding-right: 24px;
+	}
+
+	.eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 14px;
+		background: rgba(0, 0, 0, 0.04);
+		border: 1px solid rgba(0, 0, 0, 0.07);
+		border-radius: 100px;
+		font-size: 12.5px;
+		font-weight: 500;
+		color: #555;
+		letter-spacing: 0.01em;
+		margin-bottom: 32px;
+	}
+
+	.eyebrow-dot {
+		width: 6px;
+		height: 6px;
+		background: #22c55e;
+		border-radius: 50%;
+		animation: pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 1; transform: scale(1); }
+		50% { opacity: 0.5; transform: scale(0.8); }
+	}
+
+	/* The hero headline — massive, bold, Antigravity/Codex inspired */
+	.hero-headline {
+		font-size: clamp(48px, 7vw, 88px);
+		font-weight: 800;
+		line-height: 1.05;
+		letter-spacing: -0.04em;
+		color: #0a0a0a;
+		margin: 0 0 12px;
+	}
+
+	.headline-accent {
+		background: linear-gradient(135deg, #0a0a0a 0%, #666 100%);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	.hero-sub {
+		font-size: 18px;
+		color: #666;
+		line-height: 1.6;
+		margin: 0 0 40px;
+		max-width: 580px;
+		font-weight: 400;
+	}
+
+	/* ── PROMPT INPUT ─────────────────────────────────────────────────── */
+	.prompt-container {
+		width: 100%;
+		max-width: 680px;
+		background: #fff;
+		border: 1.5px solid #e4e4e7;
+		border-radius: 16px;
+		box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+		transition: all 0.2s ease;
+		overflow: visible;
+		position: relative;
+		padding: 14px 16px 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		margin-bottom: 16px;
+	}
+
+	.prompt-container.focused {
+		border-color: #0a0a0a;
+		box-shadow: 0 0 0 3px rgba(0,0,0,0.06), 0 4px 24px rgba(0,0,0,0.08);
+	}
+
+	.model-selector-wrap {
+		position: relative;
+	}
+
+	.model-selector {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 5px 10px;
+		background: rgba(0,0,0,0.03);
+		border: 1px solid rgba(0,0,0,0.07);
+		border-radius: 8px;
+		font-size: 12.5px;
+		font-weight: 500;
+		color: #444;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.model-selector:hover {
+		background: rgba(0,0,0,0.06);
+		border-color: rgba(0,0,0,0.12);
+	}
+
+	.model-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.model-caret {
+		color: #888;
+		transition: transform 0.15s;
+	}
+
+	.model-caret.open {
+		transform: rotate(180deg);
+	}
+
+	.model-dropdown {
+		position: absolute;
+		top: calc(100% + 6px);
+		left: 0;
+		background: #fff;
+		border: 1px solid #e4e4e7;
+		border-radius: 12px;
+		box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+		z-index: 200;
+		min-width: 240px;
+		overflow: hidden;
+		padding: 6px;
+	}
+
+	.model-option {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		padding: 9px 12px;
+		border: none;
+		background: none;
+		cursor: pointer;
+		border-radius: 8px;
+		transition: background 0.1s;
+	}
+
+	.model-option:hover, .model-option.active {
+		background: rgba(0,0,0,0.04);
+	}
+
+	.option-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.option-info {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		flex: 1;
+		gap: 1px;
+	}
+
+	.option-name {
+		font-size: 13px;
+		font-weight: 500;
+		color: #111;
+	}
+
+	.option-provider {
+		font-size: 11.5px;
+		color: #888;
+	}
+
+	.option-check {
+		color: #0a0a0a;
+		flex-shrink: 0;
+	}
+
+	.input-area {
+		flex: 1;
+	}
+
+	.input-area textarea {
+		width: 100%;
+		border: none;
+		background: transparent;
+		resize: none;
+		font-size: 15px;
+		color: #0a0a0a;
+		line-height: 1.5;
+		outline: none;
+		font-family: inherit;
+		min-height: 24px;
+		max-height: 200px;
+		overflow-y: auto;
+		box-sizing: border-box;
+		padding: 0;
+		display: block;
+	}
+
+	.input-area textarea::placeholder {
+		color: #aaa;
+	}
 
 	.send-btn {
-		display: flex; align-items: center; gap: 8px;
-		padding: 9px 18px; border-radius: 10px;
-		background: linear-gradient(135deg, #10b981, #059669);
-		color: #fff; font-size: 13px; font-weight: 600;
-		border: none; cursor: pointer; transition: opacity 0.2s;
+		align-self: flex-end;
+		width: 36px;
+		height: 36px;
+		border-radius: 10px;
+		border: none;
+		background: #e4e4e7;
+		color: #888;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+		flex-shrink: 0;
 	}
-	.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-	/* Starters */
-	.starters-row {
-		display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-		margin: 20px 0 40px; justify-content: center;
+	.send-btn.active {
+		background: #0a0a0a;
+		color: #fff;
 	}
-	.starters-label { font-size: 12px; color: #71717a; }
+
+	.send-btn.active:hover {
+		background: #222;
+		transform: translateY(-1px);
+	}
+
+	/* ── STARTERS ─────────────────────────────────────────────────────── */
+	.starters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		justify-content: center;
+		margin-bottom: 36px;
+	}
+
 	.starter-chip {
-		display: flex; align-items: center; gap: 6px;
-		padding: 6px 12px; border-radius: 100px;
-		background: rgba(255, 255, 255, 0.04);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		color: #d4d4d8; font-size: 12px; cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 14px;
+		background: rgba(0,0,0,0.03);
+		border: 1px solid rgba(0,0,0,0.07);
+		border-radius: 100px;
+		font-size: 13px;
+		color: #555;
+		cursor: pointer;
+		transition: all 0.15s;
+		font-weight: 500;
+	}
+
+	.starter-chip:hover {
+		background: rgba(0,0,0,0.07);
+		border-color: rgba(0,0,0,0.12);
+		color: #0a0a0a;
+		transform: translateY(-1px);
+	}
+
+	/* ── HERO CTAs ────────────────────────────────────────────────────── */
+	.hero-ctas {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-bottom: 56px;
+	}
+
+	.cta-primary {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 11px 22px;
+		background: #0a0a0a;
+		color: #fff;
+		border-radius: 100px;
+		font-size: 14px;
+		font-weight: 600;
+		text-decoration: none;
+		transition: all 0.2s;
+		letter-spacing: -0.01em;
+		border: none;
+		cursor: pointer;
+	}
+
+	.cta-primary:hover {
+		background: #222;
+		transform: translateY(-2px);
+		box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+	}
+
+	.cta-primary.large {
+		padding: 14px 28px;
+		font-size: 15px;
+	}
+
+	.cta-ghost {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 11px 22px;
+		background: transparent;
+		color: #555;
+		border-radius: 100px;
+		font-size: 14px;
+		font-weight: 500;
+		text-decoration: none;
+		border: 1px solid #e4e4e7;
+		transition: all 0.2s;
+		cursor: pointer;
+	}
+
+	.cta-ghost:hover {
+		color: #0a0a0a;
+		border-color: #c4c4c7;
+		background: rgba(0,0,0,0.03);
+	}
+
+	.cta-ghost.large {
+		padding: 14px 28px;
+		font-size: 15px;
+	}
+
+	/* ── STATS ────────────────────────────────────────────────────────── */
+	.stats-row {
+		display: flex;
+		align-items: center;
+		gap: 32px;
+	}
+
+	.stat {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+	}
+
+	.stat-num {
+		font-size: 28px;
+		font-weight: 800;
+		color: #0a0a0a;
+		letter-spacing: -0.03em;
+		line-height: 1;
+	}
+
+	.stat-label {
+		font-size: 12px;
+		color: #888;
+		font-weight: 500;
+	}
+
+	.stat-divider {
+		width: 1px;
+		height: 32px;
+		background: #e4e4e7;
+	}
+
+	/* ── SECTIONS ─────────────────────────────────────────────────────── */
+	.section {
+		position: relative;
+		z-index: 1;
+		padding: 100px 24px;
+	}
+
+	.section-dark {
+		background: #0a0a0a;
+	}
+
+	.section-cta {
+		background: #f9f9f9;
+		border-top: 1px solid #e4e4e7;
+	}
+
+	.section-inner {
+		max-width: 1140px;
+		margin: 0 auto;
+	}
+
+	.section-header {
+		text-align: center;
+		margin-bottom: 64px;
+	}
+
+	.section-header-light {
+		text-align: center;
+		margin-bottom: 64px;
+	}
+
+	.section-label {
+		display: inline-block;
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #888;
+		margin-bottom: 16px;
+	}
+
+	.section-label-light {
+		display: inline-block;
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #666;
+		margin-bottom: 16px;
+	}
+
+	.section-headline {
+		font-size: clamp(32px, 4vw, 52px);
+		font-weight: 800;
+		color: #0a0a0a;
+		margin: 0 0 16px;
+		letter-spacing: -0.03em;
+		line-height: 1.1;
+	}
+
+	.section-headline-light {
+		font-size: clamp(32px, 4vw, 52px);
+		font-weight: 800;
+		color: #fff;
+		margin: 0 0 16px;
+		letter-spacing: -0.03em;
+		line-height: 1.1;
+	}
+
+	.section-sub {
+		font-size: 16px;
+		color: #666;
+		max-width: 520px;
+		margin: 0 auto;
+		line-height: 1.6;
+	}
+
+	.section-sub-light {
+		font-size: 16px;
+		color: #888;
+		max-width: 520px;
+		margin: 0 auto;
+		line-height: 1.6;
+	}
+
+	/* ── BENTO GRID ──────────────────────────────────────────────────── */
+	.bento-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		grid-auto-rows: auto;
+		gap: 16px;
+	}
+
+	.bento-card {
+		background: #fff;
+		border: 1px solid #e4e4e7;
+		border-radius: 16px;
+		padding: 28px;
+		transition: all 0.2s;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.bento-card::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(400px at 50% -20%, rgba(0,0,0,0.02), transparent);
+		pointer-events: none;
+	}
+
+	.bento-card:hover {
+		border-color: #c4c4c7;
+		transform: translateY(-2px);
+		box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+	}
+
+	.bento-large {
+		grid-column: span 2;
+		padding: 36px;
+	}
+
+	.bento-medium {
+		grid-column: span 1;
+	}
+
+	.bento-small {
+		grid-column: span 1;
+	}
+
+	.bento-tag {
+		display: inline-block;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: #888;
+		background: rgba(0,0,0,0.04);
+		padding: 3px 8px;
+		border-radius: 5px;
+		margin-bottom: 14px;
+	}
+
+	.bento-title {
+		font-size: 20px;
+		font-weight: 700;
+		color: #0a0a0a;
+		margin: 0 0 10px;
+		letter-spacing: -0.02em;
+	}
+
+	.bento-desc {
+		font-size: 14px;
+		color: #666;
+		line-height: 1.65;
+		margin: 0;
+	}
+
+	/* ── AGENTS GRID ─────────────────────────────────────────────────── */
+	.agents-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 12px;
+	}
+
+	.agent-card {
+		background: rgba(255,255,255,0.04);
+		border: 1px solid rgba(255,255,255,0.08);
+		border-radius: 14px;
+		padding: 20px;
+		transition: all 0.2s;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.agent-card:hover {
+		background: rgba(255,255,255,0.07);
+		border-color: rgba(255,255,255,0.15);
+		transform: translateY(-2px);
+	}
+
+	.agent-emoji {
+		font-size: 24px;
+		line-height: 1;
+	}
+
+	.agent-info {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.agent-domain {
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: #666;
+	}
+
+	.agent-name {
+		font-size: 15px;
+		font-weight: 700;
+		color: #fff;
+		margin: 0;
+		letter-spacing: -0.01em;
+	}
+
+	.agent-desc {
+		font-size: 12.5px;
+		color: #666;
+		line-height: 1.55;
+		margin: 0;
+	}
+
+	/* ── INTEGRATIONS ─────────────────────────────────────────────────── */
+	.integrations-grid {
+		display: grid;
+		grid-template-columns: repeat(6, 1fr);
+		gap: 12px;
+		margin-bottom: 20px;
+	}
+
+	.integration-card {
+		background: #fff;
+		border: 1px solid #e4e4e7;
+		border-radius: 12px;
+		padding: 18px 14px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		transition: all 0.2s;
+		text-decoration: none;
+	}
+
+	.integration-card:hover {
+		border-color: #c4c4c7;
+		transform: translateY(-2px);
+		box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+	}
+
+	.int-icon {
+		font-size: 22px;
+		line-height: 1;
+	}
+
+	.int-name {
+		font-size: 12px;
+		font-weight: 600;
+		color: #555;
+	}
+
+	.integration-note {
+		text-align: center;
+		font-size: 13px;
+		color: #aaa;
+		padding: 12px 0;
+	}
+
+	/* ── USE CASES ────────────────────────────────────────────────────── */
+	.use-cases-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 16px;
+	}
+
+	.uc-card {
+		background: #fff;
+		border: 1px solid #e4e4e7;
+		border-radius: 16px;
+		padding: 32px;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
 		transition: all 0.2s;
 	}
-	.starter-chip:hover {
-		background: rgba(16, 185, 129, 0.12);
-		border-color: rgba(16, 185, 129, 0.3); color: #34d399;
+
+	.uc-card:hover {
+		border-color: #c4c4c7;
+		transform: translateY(-2px);
+		box-shadow: 0 8px 32px rgba(0,0,0,0.06);
 	}
 
-	/* Stats Strip */
-	.stats-strip {
-		display: flex; align-items: center; justify-content: center;
-		gap: 28px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.06);
-	}
-	.stat-box { display: flex; flex-direction: column; }
-	.stat-box strong { font-size: 20px; font-weight: 700; color: #fff; }
-	.stat-box span { font-size: 11px; color: #71717a; text-transform: uppercase; letter-spacing: 1px; }
-	.stat-sep { width: 1px; height: 28px; background: rgba(255, 255, 255, 0.08); }
-
-	/* ── Shared Sections ── */
-	.section-container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-	.section-badge {
-		font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #10b981;
-		margin-bottom: 12px; text-transform: uppercase;
-	}
-	.center { text-align: center; }
-	.section-title {
-		font-family: 'Syne', sans-serif; font-size: clamp(28px, 4vw, 44px);
-		font-weight: 700; color: #fff; margin: 0 0 14px;
-	}
-	.section-subtitle {
-		font-size: 16px; color: #a1a1aa; margin: 0 auto 50px; max-width: 580px;
+	.uc-icon {
+		font-size: 28px;
+		line-height: 1;
 	}
 
-	.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
-	:global(.revealed) { opacity: 1 !important; transform: none !important; }
+	.uc-title {
+		font-size: 20px;
+		font-weight: 700;
+		color: #0a0a0a;
+		margin: 0;
+		letter-spacing: -0.02em;
+	}
 
-	/* ── Models Matrix ── */
-	.models-section { padding: 100px 0; background: rgba(255, 255, 255, 0.01); }
-	.models-grid {
-		display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+	.uc-desc {
+		font-size: 14px;
+		color: #666;
+		line-height: 1.65;
+		margin: 0;
+		flex: 1;
+	}
+
+	.uc-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 13.5px;
+		font-weight: 600;
+		color: #0a0a0a;
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		text-decoration: none;
+		transition: gap 0.2s;
+	}
+
+	.uc-cta:hover {
+		gap: 10px;
+	}
+
+	/* ── FINAL CTA ────────────────────────────────────────────────────── */
+	.cta-inner {
+		text-align: center;
+		padding: 80px 0;
+	}
+
+	.cta-headline {
+		font-size: clamp(40px, 5vw, 72px);
+		font-weight: 800;
+		color: #0a0a0a;
+		letter-spacing: -0.04em;
+		margin: 0 0 16px;
+		line-height: 1.05;
+	}
+
+	.cta-sub {
+		font-size: 17px;
+		color: #666;
+		line-height: 1.6;
+		margin: 0 0 40px;
+	}
+
+	.cta-actions {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+	}
+
+	/* ── FOOTER ───────────────────────────────────────────────────────── */
+	.footer {
+		background: #fff;
+		border-top: 1px solid #e4e4e7;
+		padding: 32px 24px;
+		position: relative;
+		z-index: 1;
+	}
+
+	.footer-inner {
+		max-width: 1140px;
+		margin: 0 auto;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 16px;
+	}
+
+	.footer-logo {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 14px;
+		font-weight: 700;
+		color: #0a0a0a;
+		letter-spacing: -0.01em;
+	}
+
+	.footer-links {
+		display: flex;
 		gap: 20px;
 	}
-	.model-card {
-		padding: 24px; border-radius: 16px;
-		background: rgba(24, 24, 27, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		transition: transform 0.2s, border-color 0.2s;
-	}
-	.model-card:hover {
-		transform: translateY(-4px); border-color: var(--accent);
-	}
-	.model-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-	.m-badge { padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
-	.m-dot { width: 8px; height: 8px; border-radius: 50%; }
-	.m-title { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 8px; }
-	.m-desc { font-size: 14px; color: #a1a1aa; line-height: 1.5; margin: 0; }
 
-	/* ── Bento Grid ── */
-	.bento-section { padding: 100px 0; }
-	.bento-grid {
-		display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-	}
-	.bento-card {
-		padding: 28px; border-radius: 18px;
-		background: rgba(24, 24, 27, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		transition: all 0.2s;
-	}
-	.bento-card:hover { border-color: rgba(16, 185, 129, 0.4); transform: translateY(-3px); }
-	.bento-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-	.bento-icon { font-size: 28px; }
-	.bento-tag {
-		background: rgba(16, 185, 129, 0.12); color: #34d399;
-		padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
-	}
-	.bento-title { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 8px; }
-	.bento-desc { font-size: 14px; color: #a1a1aa; line-height: 1.6; margin: 0; }
-
-	/* ── Agent Marketplace ── */
-	.agents-section { padding: 100px 0; background: rgba(16, 185, 129, 0.02); }
-	.agents-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-	.agent-card {
-		display: flex; gap: 16px; padding: 22px; border-radius: 16px;
-		background: rgba(24, 24, 27, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);
-	}
-	.agent-avatar { font-size: 36px; }
-	.agent-content { flex: 1; }
-	.agent-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-	.agent-name { font-size: 16px; font-weight: 600; color: #fff; margin: 0; }
-	.agent-tag { background: rgba(255,255,255,0.06); color: #a1a1aa; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-	.agent-desc { font-size: 13px; color: #71717a; margin: 0 0 14px; }
-	.agent-bottom { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-	.agent-stars { color: #a1a1aa; }
-	.agent-use-btn { color: #34d399; font-weight: 600; }
-
-	/* ── Pricing ── */
-	.pricing-section { padding: 100px 0; }
-	.billing-switcher { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 48px; font-size: 14px; color: #a1a1aa; }
-	.billing-switcher span.active { color: #fff; font-weight: 600; }
-	.switch-toggle {
-		width: 44px; height: 24px; border-radius: 100px; background: rgba(255,255,255,0.1);
-		border: none; cursor: pointer; position: relative;
-	}
-	.switch-toggle.annual { background: #10b981; }
-	.switch-ball {
-		position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
-		border-radius: 50%; background: #fff; transition: transform 0.2s;
-	}
-	.switch-toggle.annual .switch-ball { transform: translateX(20px); }
-	.discount-badge { background: rgba(52,211,153,0.15); color: #34d399; padding: 2px 8px; border-radius: 100px; font-size: 11px; }
-
-	.pricing-cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-	.price-card {
-		position: relative; padding: 36px 28px; border-radius: 20px;
-		background: rgba(24, 24, 27, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);
-		display: flex; flex-direction: column;
-	}
-	.price-card.popular {
-		border-color: rgba(16, 185, 129, 0.5);
-		box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
-	}
-	.popular-ribbon {
-		position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-		background: linear-gradient(135deg, #10b981, #059669); color: #fff;
-		padding: 3px 14px; border-radius: 100px; font-size: 11px; font-weight: 600;
-	}
-	.price-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-	.price-desc { font-size: 13px; color: #71717a; margin-bottom: 24px; }
-	.price-amount { margin-bottom: 28px; }
-	.price-amount .val { font-family: 'Syne', sans-serif; font-size: 38px; font-weight: 800; color: #fff; }
-	.price-amount .unit { font-size: 13px; color: #71717a; margin-left: 4px; }
-	.price-features { list-style: none; padding: 0; margin: 0 0 32px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
-	.price-features li { font-size: 14px; color: #a1a1aa; }
-	.price-btn {
-		display: flex; align-items: center; justify-content: center; padding: 12px;
-		border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); color: #e4e4e7;
-		font-size: 14px; font-weight: 600; transition: all 0.2s;
-	}
-	.price-btn:hover { border-color: rgba(16,185,129,0.4); color: #34d399; }
-	.price-btn.primary { background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; }
-
-	/* ── FAQ ── */
-	.faq-section { padding: 100px 0; }
-	.faq-accordion { display: flex; flex-direction: column; gap: 10px; }
-	.faq-card { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; overflow: hidden; }
-	.faq-header-btn {
-		width: 100%; display: flex; justify-content: space-between; align-items: center;
-		padding: 20px 24px; background: none; border: none; color: #fff;
-		font-size: 16px; font-weight: 500; cursor: pointer; text-align: left;
-	}
-	.faq-body-text { padding: 0 24px 20px; color: #a1a1aa; font-size: 14px; line-height: 1.6; }
-
-	/* ── Footer ── */
-	.footer { padding: 60px 0 40px; border-top: 1px solid rgba(255, 255, 255, 0.08); background: #000; }
-	.footer-container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-	.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 40px; }
-	.footer-desc { font-size: 13px; color: #71717a; line-height: 1.6; margin: 12px 0 20px; }
-	.footer-social-row { display: flex; gap: 8px; }
-	.social-chip {
-		padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,0.04);
-		border: 1px solid rgba(255,255,255,0.08); color: #a1a1aa; font-size: 12px;
-	}
-	.footer-col { display: flex; flex-direction: column; gap: 10px; }
-	.footer-col-head { font-size: 12px; font-weight: 600; color: #fff; text-transform: uppercase; margin-bottom: 6px; }
-	.footer-link { font-size: 13px; color: #71717a; transition: color 0.2s; }
-	.footer-link:hover { color: #fff; }
-	.footer-bottom-bar {
-		display: flex; justify-content: space-between; font-size: 12px; color: #52525b;
-		padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+	.footer-links a, .footer-link {
+		font-size: 13.5px;
+		color: #888;
+		text-decoration: none;
+		transition: color 0.15s;
 	}
 
+	.footer-links a:hover, .footer-link:hover {
+		color: #0a0a0a;
+	}
+
+	.footer-copy {
+		font-size: 12.5px;
+		color: #bbb;
+		margin: 0;
+	}
+
+	/* ── OVERLAY ──────────────────────────────────────────────────────── */
+	.overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 150;
+		background: transparent;
+	}
+
+	/* ── RESPONSIVE ───────────────────────────────────────────────────── */
 	@media (max-width: 900px) {
-		.bento-grid, .pricing-cards-grid, .agents-grid { grid-template-columns: 1fr; }
-		.footer-grid { grid-template-columns: 1fr 1fr; }
-		.nav-links { display: none; }
+		.nav { display: none; }
+		.bento-grid { grid-template-columns: 1fr 1fr; }
+		.bento-large { grid-column: span 2; }
+		.agents-grid { grid-template-columns: repeat(2, 1fr); }
+		.integrations-grid { grid-template-columns: repeat(3, 1fr); }
+		.use-cases-grid { grid-template-columns: 1fr; }
+	}
+
+	@media (max-width: 600px) {
+		.hero { padding-top: 100px; padding-bottom: 60px; }
+		.hero-headline { font-size: 40px; }
+		.bento-grid { grid-template-columns: 1fr; }
+		.bento-large { grid-column: span 1; }
+		.agents-grid { grid-template-columns: 1fr 1fr; }
+		.integrations-grid { grid-template-columns: repeat(3, 1fr); }
+		.stats-row { gap: 16px; }
+		.stat-num { font-size: 22px; }
+		.header-actions .btn-ghost { display: none; }
 	}
 </style>
